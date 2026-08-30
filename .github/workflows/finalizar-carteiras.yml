@@ -1,0 +1,87 @@
+name: Finalizar Carteiras
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  finalizar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reescrever implementação principal
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+
+          # Remove todas as camadas auxiliares posteriores ao script principal.
+          m=re.search(r'<script>\s*const OBRIGACOES=',s)
+          if not m: raise SystemExit('script principal não encontrado')
+          end=s.find('</script>',m.start())
+          if end<0: raise SystemExit('fim do script principal não encontrado')
+          s=s[:end+len('</script>')]+'\n</body></html>\n'
+
+          legacy="CARP"+"INAPE"
+          s=s.replace("[1,'CARPINAPE','PE']","[1,'CARPINA','PE']")
+
+          # Preserva edições, completa lojas ausentes e elimina registros sem número.
+          init_re=r"let lojas=JSON\.parse\(localStorage\.getItem\('fc_lojas'\)\|\|'null'\);.*?let prazos="
+          init_new="""let lojas=JSON.parse(localStorage.getItem('fc_lojas')||'null');
+          if(!Array.isArray(lojas))lojas=[];
+          lojas=lojas.filter(l=>l&&String(l.numero??'').trim()!=='');
+          const existing=new Set(lojas.map(l=>String(l.numero)));
+          MASTER.forEach(([numero,nome,uf])=>{if(!existing.has(String(numero))){lojas.push({id:100000+Number(numero),numero,nome,uf,cnpj:'',ie:'',im:'',endereco:'',ativo:true,impostos:[...OBRIGACOES],analista:''})}else{const l=lojas.find(x=>String(x.numero)===String(numero));l.numero=numero;const atual=String(l.nome||'').trim().toUpperCase();if(String(numero)==='1'&&atual===legacy)l.nome='CARPINA';else l.nome=l.nome||nome;l.uf=l.uf||uf;l.cnpj=l.cnpj||'';l.ie=l.ie||'';l.im=l.im||'';l.endereco=l.endereco||'';l.ativo=l.ativo!==false;l.impostos=Array.isArray(l.impostos)?l.impostos:[...OBRIGACOES];l.analista=l.analista||''}});
+          let prazos="""
+          s,n=re.subn(init_re,init_new,s,count=1,flags=re.S)
+          if n!=1: raise SystemExit('inicialização das lojas não localizada')
+
+          # Filtros ficam no HTML da própria página e são todos opcionais.
+          fr=r'(<section class="page" id="page-carteiras">.*?<div class="filters">).*?(</div><div class="grid three" id="portfolio">)'
+          fn=r'''\1<select id="storeLoja" onchange="renderStores()"><option value="">Todas as lojas</option></select><input id="storeSearch" placeholder="🔎 Número, nome, CNPJ, cidade ou endereço" oninput="renderStores()"><select id="storeUF" onchange="renderStores()"><option value="">Todos os estados</option><option>PE</option><option>AL</option><option>PB</option><option>SP</option></select><select id="storeAnalista" onchange="renderStores()"><option value="">Todos os analistas</option></select><select id="storeStatus" onchange="renderStores()"><option value="">Ativas e inativas</option><option value="true">Ativas</option><option value="false">Inativas</option></select><button class="btn" type="button" onclick="limparFiltrosLojas()">↺ Limpar filtros</button>\2'''
+          s,n=re.subn(fr,fn,s,count=1,flags=re.S)
+          if n!=1: raise SystemExit('filtros da Carteiras não localizados')
+
+          old='<div class="actions"><button class="btn primary" onclick="openStore()">+ Nova loja</button><button class="btn" onclick="openAssign()">⇄ Trocar carteira</button></div>'
+          new='<div class="actions"><button class="btn primary" onclick="openStore()">+ Nova loja</button><button class="btn" onclick="openAssign()">⇄ Trocar carteira</button><button class="btn" type="button" onclick="imprimirCarteira()">🖨️ Imprimir carteira</button></div>'
+          if old not in s: raise SystemExit('ações da Carteiras não localizadas')
+          s=s.replace(old,new,1)
+
+          rr=r'function renderStores\(\)\{.*?\}function renderEquipe'
+          rf=r'''function limparFiltrosLojas(){document.getElementById('storeLoja').value='';document.getElementById('storeSearch').value='';document.getElementById('storeUF').value='';document.getElementById('storeAnalista').value='';document.getElementById('storeStatus').value='';renderStores()}
+          function renderStores(){const ls=document.getElementById('storeLoja'),as=document.getElementById('storeAnalista'),lv=ls?.value||'',av=as?.value||'';if(ls){const ns=[...new Set(lojas.map(l=>String(l.numero??'').trim()).filter(Boolean))].sort((a,b)=>Number(a)-Number(b));ls.innerHTML='<option value="">Todas as lojas</option>'+ns.map(n=>`<option value="${esc(n)}">Loja ${esc(n)}</option>`).join('');if(ns.includes(lv))ls.value=lv}if(as){const aa=equipe.filter(e=>String(e.funcao||'').trim()==='Analista'&&String(e.situacao||'').trim()==='Ativo').sort((a,b)=>String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR'));as.innerHTML='<option value="">Todos os analistas</option>'+aa.map(e=>`<option value="${esc(e.nome)}">${esc(e.nome)}</option>`).join('');if(aa.some(e=>e.nome===av))as.value=av}const q=(document.getElementById('storeSearch')?.value||'').toLowerCase().trim(),uf=document.getElementById('storeUF')?.value||'',st=document.getElementById('storeStatus')?.value||'',numero=ls?.value||'',analista=as?.value||'',arr=lojas.filter(l=>(!q||[l.numero,l.nome,l.cnpj,l.ie,l.im,l.endereco,l.uf,l.analista].join(' ').toLowerCase().includes(q))&&(!uf||l.uf===uf)&&(!st||String(l.ativo!==false)===st)&&(!numero||String(l.numero)===numero)&&(!analista||String(l.analista||'')===analista)).sort((a,b)=>Number(a.numero)-Number(b.numero));document.getElementById('storesTable').innerHTML=arr.map(l=>`<tr><td><b>${esc(l.numero)}</b></td><td><b>${esc(l.nome)}</b></td><td>${esc(l.cnpj||'—')}</td><td>${esc(l.ie||'—')}</td><td>${esc(l.im||'—')}</td><td>${esc(l.endereco||'—')}</td><td>${esc(l.uf)}</td><td><span class="badge ${l.ativo!==false?'greenbg':'gray'}">${l.ativo!==false?'Ativa':'Inativa'}</span></td><td>${esc(l.analista||'Sem carteira')}</td><td><button class="btn" type="button" onclick="openStore(${l.id})">Editar</button></td></tr>`).join('')||'<tr><td colspan="10">Nenhuma loja encontrada.</td></tr>'}
+          function imprimirCarteira(){const cols=[['numero','Número'],['nome','Nome da loja'],['cnpj','CNPJ'],['ie','Inscrição Estadual'],['im','Inscrição Municipal'],['endereco','Endereço'],['uf','UF'],['ativo','Status'],['analista','Analista']],m=document.createElement('div');m.className='modalBack show';m.id='fcPrintModal';m.innerHTML=`<div class="modal" style="max-width:650px"><div class="modalHead"><b>Imprimir carteira de lojas</b><button class="btn" id="fcPC">×</button></div><div class="modalBody"><p style="margin-top:0;color:var(--muted)">Selecione as informações que deseja imprimir.</p><div class="checkgrid">${cols.map(([k,t])=>`<label class="check"><input type="checkbox" data-print="${k}" ${['numero','nome','cnpj','ie','uf','analista'].includes(k)?'checked':''}> ${t}</label>`).join('')}</div></div><div class="modalFoot"><button class="btn" id="fcPX">Cancelar</button><button class="btn primary" id="fcPG">🖨️ Imprimir</button></div></div>`;document.body.appendChild(m);const close=()=>m.remove();m.querySelector('#fcPC').onclick=close;m.querySelector('#fcPX').onclick=close;m.querySelector('#fcPG').onclick=()=>{const selected=[...m.querySelectorAll('[data-print]:checked')].map(x=>x.dataset.print);if(!selected.length)return alert('Selecione pelo menos uma informação.');const ls=document.getElementById('storeLoja')?.value||'',an=document.getElementById('storeAnalista')?.value||'',q=(document.getElementById('storeSearch')?.value||'').toLowerCase().trim(),uf=document.getElementById('storeUF')?.value||'',st=document.getElementById('storeStatus')?.value||'',rows=lojas.filter(l=>(!q||[l.numero,l.nome,l.cnpj,l.ie,l.im,l.endereco,l.uf,l.analista].join(' ').toLowerCase().includes(q))&&(!uf||l.uf===uf)&&(!st||String(l.ativo!==false)===st)&&(!ls||String(l.numero)===ls)&&(!an||String(l.analista||'')===an)).sort((a,b)=>Number(a.numero)-Number(b.numero));if(!rows.length)return alert('Nenhuma loja encontrada para os filtros selecionados.');const lab=Object.fromEntries(cols),val=(l,k)=>k==='ativo'?(l.ativo===false?'Inativa':'Ativa'):k==='analista'?(l.analista||'Sem carteira'):(l[k]||'—'),html=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Carteira de Lojas</title><style>@page{size:A4 landscape;margin:12mm}body{font:11px Arial;color:#172033}table{width:100%;border-collapse:collapse}th,td{border:1px solid #dfe5ec;padding:7px;text-align:left}th{background:#f3f6fa;font-size:9px;text-transform:uppercase}</style></head><body><h1>Carteira de Lojas — Fiscal Control</h1><p>Quantidade: ${rows.length}</p><table><thead><tr>${selected.map(k=>`<th>${esc(lab[k])}</th>`).join('')}</tr></thead><tbody>${rows.map(l=>`<tr>${selected.map(k=>`<td>${esc(val(l,k))}</td>`).join('')}</tr>`).join('')}</tbody></table><script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250))<\/script></body></html>`;const w=window.open('','_blank','width=1200,height=800');if(!w)return alert('Permita pop-ups para imprimir.');w.document.open();w.document.write(html);w.document.close();close()}}
+          function renderEquipe'''
+          s,n=re.subn(rr,rf,s,count=1,flags=re.S)
+          if n!=1: raise SystemExit('renderStores original não localizada')
+
+          # Edição usa somente analistas ativos na atribuição.
+          s=s.replace("equipe.filter(e=>e.funcao==='Analista')","equipe.filter(e=>e.funcao==='Analista'&&e.situacao==='Ativo')",1)
+          assert s.count('function renderStores(){')==1
+          assert s.count('function imprimirCarteira(){')==1
+          assert s.count('id="storeAnalista"')==1
+          assert s.count('id="storeLoja"')==1
+          assert 'MutationObserver' not in s
+          assert 'setInterval(' not in s
+          assert 'CARPINAPE' not in s
+          assert "[1,'CARPINA','PE']" in s
+          p.write_text(s,encoding='utf-8')
+
+      - name: Validar e remover o workflow temporário
+        shell: bash
+        run: |
+          test "$(grep -o 'function renderStores(){' index.html | wc -l)" -eq 1
+          test "$(grep -o 'function imprimirCarteira(){' index.html | wc -l)" -eq 1
+          test "$(grep -o 'id=\"storeAnalista\"' index.html | wc -l)" -eq 1
+          test "$(grep -o 'id=\"storeLoja\"' index.html | wc -l)" -eq 1
+          ! grep -q 'MutationObserver' index.html
+          ! grep -q 'setInterval(' index.html
+          ! grep -q 'CARPINAPE' index.html
+          rm .github/workflows/finalizar-carteiras.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html .github/workflows/finalizar-carteiras.yml
+          git commit -m "fix: finalizar Carteiras com implementação única"
+          git push
