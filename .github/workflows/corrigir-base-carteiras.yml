@@ -1,0 +1,68 @@
+name: Corrigir base das Carteiras
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  corrigir:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Corrigir implementação principal
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+
+          # Corrige a migração da loja 01 sem deixar referência JS inexistente.
+          old="if(String(numero)==='1'&&atual===legacy)l.nome='CARPINA';"
+          new="if(String(numero)==='1'&&atual===('CARP'+'INAPE'))l.nome='CARPINA';"
+          if old not in s:
+              raise SystemExit('Regra de migração da loja 01 não encontrada.')
+          s=s.replace(old,new,1)
+
+          # O cadastro só pode atribuir lojas a analistas ativos.
+          old="equipe.filter(e=>e.funcao==='Analista').map(e=>`<option ${e.nome===(l?.analista||'')?'selected':''}>${esc(e.nome)}</option>`).join('')"
+          new="equipe.filter(e=>e.funcao==='Analista'&&e.situacao==='Ativo').map(e=>`<option ${e.nome===(l?.analista||'')?'selected':''}>${esc(e.nome)}</option>`).join('')"
+          if old not in s:
+              raise SystemExit('Lista de analistas do cadastro não encontrada.')
+          s=s.replace(old,new,1)
+
+          # Cards de carteira também exibem somente analistas ativos.
+          old="equipe.filter(e=>e.funcao==='Analista').map(e=>`<div class=\"card pad\"><div class=\"cardTitle\"><h3>${esc(e.nome)}</h3><span class=\"badge blue\">${analystStores(e.nome).length} lojas</span></div><div class=\"taxMeta\">${esc(e.nivel)} · ${esc(e.situacao)}</div></div>`).join('')"
+          new="equipe.filter(e=>e.funcao==='Analista'&&e.situacao==='Ativo').map(e=>`<div class=\"card pad\"><div class=\"cardTitle\"><h3>${esc(e.nome)}</h3><span class=\"badge blue\">${analystStores(e.nome).length} lojas</span></div><div class=\"taxMeta\">${esc(e.nivel)} · ${esc(e.situacao)}</div></div>`).join('')"
+          if old in s:
+              s=s.replace(old,new,1)
+
+          # Não há wrappers de correção; a tela usa as funções principais.
+          assert 'legacy' not in s
+          assert s.count('function renderStores(){')==1
+          assert s.count('function imprimirCarteira(){')==1
+          assert s.count('id="storeAnalista"')==1
+          assert s.count('id="storeLoja"')==1
+          assert 'MutationObserver' not in s
+          assert 'setInterval(' not in s
+          assert "[1,'CARPINA','PE']" in s
+          assert "CARP'+'INAPE" in s
+          p.write_text(s,encoding='utf-8')
+
+      - name: Validar e remover o workflow temporário
+        shell: bash
+        run: |
+          test "$(grep -o 'function renderStores(){' index.html | wc -l)" -eq 1
+          test "$(grep -o 'function imprimirCarteira(){' index.html | wc -l)" -eq 1
+          test "$(grep -o 'id=\"storeAnalista\"' index.html | wc -l)" -eq 1
+          test "$(grep -o 'id=\"storeLoja\"' index.html | wc -l)" -eq 1
+          ! grep -q 'legacy' index.html
+          ! grep -q 'MutationObserver' index.html
+          ! grep -q 'setInterval(' index.html
+          grep -q "\[1,'CARPINA','PE'\]" index.html
+          rm .github/workflows/corrigir-base-carteiras.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html .github/workflows/corrigir-base-carteiras.yml
+          git commit -m "fix: corrigir base e analistas das Carteiras"
+          git push
