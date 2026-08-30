@@ -1,0 +1,46 @@
+name: Fix Apuracoes
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Corrigir filtros e lista de lojas
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          marker = '<!-- APURACOES-FIX-V2 -->'
+          if marker in s:
+              raise SystemExit(0)
+
+          old = '''<div class="filters"><input id="busca" placeholder="🔎 Buscar loja" oninput="renderApuracoes()"><select id="filtroImposto" onchange="renderApuracoes()"></select><select id="filtroUF" onchange="renderApuracoes()"><option value="">Todos os estados</option><option>PE</option><option>AL</option><option>PB</option><option>SP</option></select></div>'''
+          new = '''<div class="filters"><input id="busca" placeholder="🔎 Buscar loja" oninput="renderApuracoes()"><select id="filtroImposto" onchange="renderApuracoes()"></select><select id="filtroUF" onchange="renderApuracoes()"><option value="">Todos os estados</option><option>PE</option><option>AL</option><option>PB</option><option>SP</option></select><button class="btn" type="button" onclick="limparFiltrosApuracoes()">↺ Limpar filtros</button></div>'''
+          if old not in s:
+              raise SystemExit('Bloco de filtros nao encontrado')
+          s = s.replace(old, new, 1)
+
+          old_fn = "function renderApuracoes(){let fi=document.getElementById('filtroImposto'),old=fi.value;fi.innerHTML='<option value=\"\">Todos os impostos</option>'+OBRIGACOES.map(o=>`<option>${o}</option>`).join('');fi.value=OBRIGACOES.includes(old)?old:'';let busca=(document.getElementById('busca')?.value||'').toLowerCase(),uf=document.getElementById('filtroUF')?.value||'',u=currentUser();let visible=(isManager()?lojas:analystStores(u)).filter(l=>l.ativo!==false&&(!busca||`${l.numero} ${l.nome}`.toLowerCase().includes(busca))&&(!uf||l.uf===uf));let imp=fi.value,arr=imp?[imp]:OBRIGACOES;document.getElementById('taxCards').innerHTML=arr.map(ob=>{let units=visible.filter(l=>l.impostos.includes(ob));return `<div class=\"card tax\"><div class=\"taxHead\"><div><h3>${ob}</h3><div class=\"taxMeta\">${units.length} loja(s)</div></div><span class=\"badge blue\">${units.filter(l=>execucoes[key(l,ob)]?.status==='Finalizada').length}/${units.length}</span></div>${units.map(l=>{let e=execucoes[key(l,ob)]||{},status=e.status||'Pendente';return `<div class=\"store\"><div class=\"storeTop\"><div><div class=\"storeName\">${esc(l.numero)} · ${esc(l.nome)}</div><div class=\"state\">${l.uf} · ${esc(l.analista||'Sem carteira')}</div></div><span class=\"status ${status==='Finalizada'?'greenbg':'yellowbg'} badge\">${status}</span></div><div class=\"rowBtns\"><button class=\"btn ${status==='Analisando'?'yellow':''}\" onclick=\"setStatus(${l.id},'${ob}','Analisando')\">Analisando</button><button class=\"btn green\" onclick=\"finalizar(${l.id},'${ob}')\">Finalizar</button></div></div>`}).join('')}</div>`}).join('')||'<div class=\"alert blue\">Nenhuma loja encontrada.</div>'}"
+          if old_fn not in s:
+              raise SystemExit('Funcao renderApuracoes nao encontrada')
+
+          new_fn = """function renderApuracoes(){let fi=document.getElementById('filtroImposto'),old=fi.value;fi.innerHTML='<option value=\"\">Todos os impostos</option>'+OBRIGACOES.map(o=>`<option>${o}</option>`).join('');fi.value=OBRIGACOES.includes(old)?old:'';let busca=(document.getElementById('busca')?.value||'').toLowerCase().trim(),uf=(document.getElementById('filtroUF')?.value||'').trim().toUpperCase(),u=currentUser();let base=isManager()?lojas:analystStores(u);let visible=(Array.isArray(base)?base:[]).filter(l=>l&&l.ativo!==false&&(!busca||`${l.numero??''} ${l.nome??''}`.toLowerCase().includes(busca))&&(!uf||String(l.uf||'').trim().toUpperCase()===uf));visible.forEach(l=>{if(!Array.isArray(l.impostos)||!l.impostos.length)l.impostos=[...OBRIGACOES]});let imp=fi.value,arr=imp?[imp]:OBRIGACOES;document.getElementById('taxCards').innerHTML=arr.map(ob=>{let units=visible.filter(l=>Array.isArray(l.impostos)&&l.impostos.includes(ob));return `<div class=\"card tax\"><div class=\"taxHead\"><div><h3>${ob}</h3><div class=\"taxMeta\">${units.length} loja(s)</div></div><span class=\"badge blue\">${units.filter(l=>execucoes[key(l,ob)]?.status==='Finalizada').length}/${units.length}</span></div>${units.map(l=>{let e=execucoes[key(l,ob)]||{},status=e.status||'Pendente';return `<div class=\"store\"><div class=\"storeTop\"><div><div class=\"storeName\">${esc(l.numero)} · ${esc(l.nome)}</div><div class=\"state\">${esc(l.uf)} · ${esc(l.analista||'Sem carteira')}</div></div><span class=\"status ${status==='Finalizada'?'greenbg':'yellowbg'} badge\">${status}</span></div><div class=\"rowBtns\"><button class=\"btn ${status==='Analisando'?'yellow':''}\" onclick=\"setStatus(${l.id},'${ob}','Analisando')\">Analisando</button><button class=\"btn green\" onclick=\"finalizar(${l.id},'${ob}')\">Finalizar</button></div></div>`}).join('')}</div>`}).join('')||'<div class=\"alert blue\">Nenhuma loja encontrada.</div>'}function limparFiltrosApuracoes(){document.getElementById('busca').value='';document.getElementById('filtroImposto').value='';document.getElementById('filtroUF').value='';renderApuracoes()}<!-- APURACOES-FIX-V2 -->"""
+          s = s.replace(old_fn, new_fn, 1)
+          p.write_text(s, encoding='utf-8')
+
+      - name: Publicar correcao
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Corrige lista de lojas por estado e adiciona limpar filtros"
+          git push
