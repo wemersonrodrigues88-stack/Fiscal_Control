@@ -32,7 +32,7 @@ jobs:
           from pathlib import Path
           path = Path('index.html')
           html = path.read_text(encoding='utf-8')
-          for tag in ['<script src="dashboard-patch.js"></script>', '<script src="operational-pages-fix.js"></script>', '<script src="dashboard-home-cleanup.js"></script>']:
+          for tag in ['<script src="dashboard-patch.js"></script>', '<script src="operational-pages-fix.js"></script>', '<script src="dashboard-home-cleanup.js"></script>', '<script src="cronometro-apuracoes.js?v=1"></script>']:
               if tag not in html:
                   marker = '</body>'
                   if marker not in html:
