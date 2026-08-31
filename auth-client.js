@@ -156,3 +156,5 @@
     }, 250);
   });
 })();
+
+/* auth-ui activation trigger v2 */
