@@ -1,0 +1,38 @@
+name: Ativar matriz de acesso
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'acesso-perfis.js'
+      - 'index.html'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  activate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Conectar controle de acesso
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          tag='<script src="acesso-perfis.js?v=1"></script>'
+          if 'src="acesso-perfis.js' not in s:
+              pos=s.rfind('</body>')
+              if pos < 0: raise SystemExit('body não encontrado')
+              s=s[:pos]+tag+s[pos:]
+              p.write_text(s,encoding='utf-8')
+      - name: Publicar ativação
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Ativa controle de acesso por perfil"
+          git push
