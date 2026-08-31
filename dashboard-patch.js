@@ -1,19 +1,132 @@
-/* Perfil: botão Abrir apurações somente para analistas. Mantém o restante do dashboard intacto. */
+/* Fiscal Control — integração dos acompanhamentos e regras de perfil.
+   Mantém as funções existentes e apenas conecta a camada de acompanhamento aos dados locais. */
 (function(){
-  function applyProfileRule(){
-    const usuario=document.getElementById('usuario');
-    const btn=[...document.querySelectorAll('.actions .btn.primary')].find(b=>b.textContent.trim().toLowerCase().includes('abrir apurações'));
-    if(!usuario||!btn)return;
-    const nome=usuario.value||'';
-    const equipe=window.equipe||[];
-    const pessoa=equipe.find(e=>e.nome===nome);
-    const isAnalista=!!pessoa&&pessoa.funcao==='Analista';
-    btn.style.display=isAnalista?'':'none';
+  'use strict';
+  const TAXES=['ICMS','PIS/COFINS','ISS','SPED ICMS','Fronteiras'];
+
+  function read(key,fallback){
+    try{const v=JSON.parse(localStorage.getItem(key)||'null');return v==null?fallback:v}catch(e){return fallback}
   }
-  document.addEventListener('DOMContentLoaded',applyProfileRule);
-  const originalRender=window.render;
-  if(typeof originalRender==='function'){
-    window.render=function(){const r=originalRender.apply(this,arguments);applyProfileRule();return r;};
+  function stores(){const v=read('fc_lojas',[]);return Array.isArray(v)?v:[]}
+  function team(){const v=read('fc_equipe',[]);return Array.isArray(v)?v:[]}
+  function execs(){const v=read('fc_execucoes',{});return v&&typeof v==='object'?v:{}}
+  function esc2(v){return typeof window.esc==='function'?window.esc(v):String(v??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]))}
+  function currentUser(){return (document.getElementById('usuario')?.value||'Daniela').trim()}
+  function isManagement(){return currentUser()==='Daniela'||currentUser()==='Leonardo'}
+  function statusOf(loja,tax){
+    const e=execs()[(loja.id)+'|'+tax];
+    if(!e||!e.status)return{label:'Pendente',cls:'yellowbg'};
+    if(e.status==='Analisando')return{label:'Analisando',cls:'blue'};
+    if(e.status==='Finalizada'||e.status==='Finalizado')return{label:'Finalizado',cls:'greenbg'};
+    return{label:e.status,cls:'gray'};
   }
-  setInterval(applyProfileRule,500);
+
+  function ensureStyle(){
+    if(document.getElementById('fc-acomp-style'))return;
+    const s=document.createElement('style');s.id='fc-acomp-style';
+    s.textContent=`
+      .fc-acomp-actions{display:flex;gap:7px;flex-wrap:wrap}
+      .fc-acomp-btn{border:1px solid #e1e7ef;background:#fff;color:#172033;border-radius:9px;padding:9px 12px;font:inherit;font-weight:750;cursor:pointer}
+      .fc-acomp-btn.primary{background:#1769e0;border-color:#1769e0;color:#fff}
+      .fc-acomp-btn.individual{background:#eaf1ff;border-color:#cfe0ff;color:#185ebc}
+      .fc-acomp-modal{position:fixed;inset:0;background:#0c152a99;display:none;place-items:center;z-index:80;padding:14px}
+      .fc-acomp-modal.show{display:grid}
+      .fc-acomp-box{background:#fff;width:min(1250px,100%);max-height:92vh;overflow:auto;border-radius:17px;box-shadow:0 25px 80px #0004}
+      .fc-acomp-head{padding:16px 18px;border-bottom:1px solid #e1e7ef;display:flex;justify-content:space-between;align-items:center;gap:12px;position:sticky;top:0;background:#fff;z-index:2}
+      .fc-acomp-head h2{margin:0;font-size:19px}.fc-acomp-sub{font-size:11px;color:#687589;margin-top:3px}.fc-acomp-body{padding:16px 18px}
+      .fc-acomp-toolbar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
+      .fc-acomp-search{border:1px solid #e1e7ef;border-radius:9px;padding:9px 11px;min-width:180px;font:inherit;background:#fff}
+      .fc-acomp-table-wrap{overflow:auto;border:1px solid #e1e7ef;border-radius:12px}.fc-acomp-table{width:100%;border-collapse:collapse;min-width:850px}
+      .fc-acomp-table th,.fc-acomp-table td{padding:10px 11px;border-bottom:1px solid #e1e7ef;text-align:left;white-space:nowrap}.fc-acomp-table th{font-size:10px;text-transform:uppercase;color:#788498;background:#f8fafc;position:sticky;top:0}.fc-acomp-table td{font-size:12px}
+      .fc-status{display:inline-flex;border-radius:99px;padding:5px 8px;font-size:10px;font-weight:850;white-space:nowrap}.fc-status.yellowbg{background:#fff3d8;color:#966100}.fc-status.blue{background:#eaf1ff;color:#1b5eb7}.fc-status.greenbg{background:#e5f7f0;color:#087453}.fc-status.gray{background:#edf0f4;color:#667286}
+      .fc-analyst-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}.fc-analyst-card{border:1px solid #e1e7ef;border-radius:12px;padding:12px;cursor:pointer;background:#fff;text-align:left}.fc-analyst-card.active{border-color:#1769e0;box-shadow:0 0 0 2px #1769e01a}.fc-analyst-card b{display:block}.fc-analyst-card small{color:#687589}.fc-empty{padding:22px;text-align:center;color:#687589}
+      @media(max-width:800px){.fc-analyst-grid{grid-template-columns:1fr 1fr}.fc-acomp-search{width:100%;min-width:0}}@media(max-width:560px){.fc-analyst-grid{grid-template-columns:1fr}.fc-acomp-head{align-items:flex-start}.fc-acomp-box{max-height:95vh}}
+    `;document.head.appendChild(s)
+  }
+
+  function applyProfile(){
+    const u=document.getElementById('usuario');
+    if(!u)return;
+    const name=(u.value||'').trim();
+    const person=team().find(e=>e.nome===name);
+    const analyst=!!person&&person.funcao==='Analista';
+    document.querySelectorAll('#page-dashboard .actions .btn.primary').forEach(b=>{
+      if(b.textContent.trim().toLowerCase().includes('abrir apurações'))b.style.display=analyst?'':'none';
+    });
+  }
+
+  function ensureUI(){
+    ensureStyle();
+    const head=document.querySelector('#page-dashboard .head');
+    if(head&&!document.getElementById('fc-acomp-actions')){
+      const actions=head.querySelector('.actions');
+      if(actions){
+        const wrap=document.createElement('div');wrap.id='fc-acomp-actions';wrap.className='fc-acomp-actions';
+        wrap.innerHTML='<button type="button" class="fc-acomp-btn primary" id="fc-geral">Acompanhamento geral</button><button type="button" class="fc-acomp-btn individual" id="fc-individual">Acompanhamento individual</button>';
+        actions.appendChild(wrap);
+        document.getElementById('fc-geral').onclick=openGeneral;
+        document.getElementById('fc-individual').onclick=openIndividual;
+      }
+    }
+    if(!document.getElementById('fc-acomp-modal')){
+      const m=document.createElement('div');m.id='fc-acomp-modal';m.className='fc-acomp-modal';
+      m.innerHTML='<div class="fc-acomp-box"><div class="fc-acomp-head"><div><h2 id="fc-acomp-title"></h2><div class="fc-acomp-sub" id="fc-acomp-sub"></div></div><button type="button" class="fc-acomp-btn" id="fc-acomp-close">Fechar</button></div><div class="fc-acomp-body" id="fc-acomp-body"></div></div>';
+      document.body.appendChild(m);document.getElementById('fc-acomp-close').onclick=closeAcomp;m.addEventListener('click',e=>{if(e.target===m)closeAcomp()});
+    }
+    const management=isManagement();const buttons=document.getElementById('fc-acomp-actions');if(buttons)buttons.style.display=management?'flex':'none';
+    applyProfile();
+  }
+
+  function openGeneral(){
+    if(!isManagement())return;
+    ensureUI();
+    const active=stores().filter(l=>l&&l.ativo!==false);
+    document.getElementById('fc-acomp-title').textContent='Acompanhamento geral';
+    document.getElementById('fc-acomp-sub').textContent=active.length+' lojas · visão consolidada das 5 obrigações';
+    const body=document.getElementById('fc-acomp-body');
+    body.innerHTML='<div class="fc-acomp-toolbar"><div><b>Lista completa de lojas</b><div class="fc-acomp-sub">Status alimentado pelas execuções registradas em Apurações.</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="fc-geral-search" class="fc-acomp-search" placeholder="🔎 Buscar loja"><select id="fc-geral-analyst" class="fc-acomp-search"><option value="">Todos os analistas</option></select><select id="fc-geral-uf" class="fc-acomp-search"><option value="">Todas as UFs</option></select><select id="fc-geral-status" class="fc-acomp-search"><option value="">Todos os status</option><option>Pendente</option><option>Analisando</option><option>Finalizado</option></select></div></div><div class="fc-acomp-table-wrap"><table class="fc-acomp-table"><thead><tr><th>Loja</th><th>Analista</th><th>ICMS</th><th>PIS/COFINS</th><th>ISS</th><th>SPED</th><th>Fronteiras</th></tr></thead><tbody id="fc-geral-body"></tbody></table></div>';
+    const names=[...new Set(active.map(l=>l.analista).filter(Boolean))].sort(),ufs=[...new Set(active.map(l=>l.uf).filter(Boolean))].sort();
+    document.getElementById('fc-geral-analyst').innerHTML='<option value="">Todos os analistas</option>'+names.map(x=>`<option>${esc2(x)}</option>`).join('');
+    document.getElementById('fc-geral-uf').innerHTML='<option value="">Todas as UFs</option>'+ufs.map(x=>`<option>${esc2(x)}</option>`).join('');
+    const draw=()=>{
+      const q=document.getElementById('fc-geral-search').value.toLowerCase().trim(),a=document.getElementById('fc-geral-analyst').value,u=document.getElementById('fc-geral-uf').value,st=document.getElementById('fc-geral-status').value;
+      const arr=active.filter(l=>{if(q&&!`${l.numero??''} ${l.nome??''} ${l.analista??''} ${l.uf??''}`.toLowerCase().includes(q))return false;if(a&&l.analista!==a)return false;if(u&&l.uf!==u)return false;if(st&&!TAXES.some(t=>statusOf(l,t).label===st))return false;return true});
+      document.getElementById('fc-geral-body').innerHTML=arr.map(l=>`<tr><td><b>${esc2(l.numero)} · ${esc2(l.nome)}</b><br><small style="color:#687589">${esc2(l.uf)}</small></td><td>${esc2(l.analista||'Sem carteira')}</td>${TAXES.map(t=>{const s=statusOf(l,t);return `<td><span class="fc-status ${s.cls}">${s.label}</span></td>`}).join('')}</tr>`).join('')||'<tr><td colspan="7" class="fc-empty">Nenhuma loja encontrada.</td></tr>';
+    };
+    ['fc-geral-search','fc-geral-analyst','fc-geral-uf','fc-geral-status'].forEach(id=>{document.getElementById(id).oninput=draw;document.getElementById(id).onchange=draw});draw();document.getElementById('fc-acomp-modal').classList.add('show');
+  }
+
+  function openIndividual(){
+    if(!isManagement())return;
+    ensureUI();
+    const analysts=team().filter(e=>e.funcao==='Analista');
+    document.getElementById('fc-acomp-title').textContent='Acompanhamento individual';
+    document.getElementById('fc-acomp-sub').textContent='Cada analista com suas lojas e os respectivos impostos.';
+    const body=document.getElementById('fc-acomp-body');body.innerHTML='<div class="fc-analyst-grid" id="fc-analyst-grid"></div><div id="fc-individual-content"></div>';
+    const grid=document.getElementById('fc-analyst-grid');
+    analysts.forEach((a,i)=>{const ss=stores().filter(l=>l&&l.ativo!==false&&l.analista===a.nome);const c=document.createElement('button');c.type='button';c.className='fc-analyst-card'+(i===0?' active':'');c.innerHTML=`<b>${esc2(a.nome)}</b><small>${esc2(a.nivel)} · ${ss.length} loja(s)</small>`;c.onclick=()=>{grid.querySelectorAll('.fc-analyst-card').forEach(x=>x.classList.remove('active'));c.classList.add('active');drawIndividual(a)};grid.appendChild(c)});
+    if(analysts.length)drawIndividual(analysts[0]);else document.getElementById('fc-individual-content').innerHTML='<div class="fc-empty">Nenhum analista cadastrado.</div>';
+    document.getElementById('fc-acomp-modal').classList.add('show');
+  }
+
+  function drawIndividual(a){
+    const ss=stores().filter(l=>l&&l.ativo!==false&&l.analista===a.nome);
+    document.getElementById('fc-individual-content').innerHTML=`<div class="fc-acomp-toolbar"><div><b>${esc2(a.nome)}</b><div class="fc-acomp-sub">${esc2(a.nivel)} · ${ss.length} loja(s) na carteira</div></div></div><div class="fc-acomp-table-wrap"><table class="fc-acomp-table"><thead><tr><th>Loja</th><th>ICMS</th><th>PIS/COFINS</th><th>ISS</th><th>SPED</th><th>Fronteiras</th></tr></thead><tbody>${ss.map(l=>`<tr><td><b>${esc2(l.numero)} · ${esc2(l.nome)}</b><br><small style="color:#687589">${esc2(l.uf)}</small></td>${TAXES.map(t=>{const s=statusOf(l,t);return `<td><span class="fc-status ${s.cls}">${s.label}</span></td>`}).join('')}</tr>`).join('')||'<tr><td colspan="6" class="fc-empty">Nenhuma loja vinculada a este analista.</td></tr>'}</tbody></table></div>`;
+  }
+
+  function closeAcomp(){const m=document.getElementById('fc-acomp-modal');if(m)m.classList.remove('show')}
+
+  function patchRender(){
+    ensureUI();
+    const u=document.getElementById('usuario');if(u&&!u.__fcProfile){u.addEventListener('change',()=>setTimeout(()=>{ensureUI();applyProfile()},0));u.__fcProfile=true}
+    if(typeof window.render==='function'&&!window.__fcAcompRender){
+      const original=window.render;
+      window.render=function(){const r=original.apply(this,arguments);setTimeout(()=>{ensureUI();applyProfile()},0);return r};
+      window.__fcAcompRender=true;
+    }
+  }
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',patchRender);else patchRender();
+  window.addEventListener('storage',()=>{setTimeout(()=>{ensureUI();applyProfile()},0)});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAcomp()});
 })();
