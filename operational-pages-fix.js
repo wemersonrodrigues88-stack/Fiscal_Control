@@ -4,8 +4,9 @@ const OPS_TAXES=['ICMS','PIS/COFINS','ISS','SPED ICMS','Fronteiras'];
 const OPS_UFS=['PE','AL','PB','SP'];
 function read(key,fallback){try{const v=JSON.parse(localStorage.getItem(key)||'null');return v==null?fallback:v}catch(e){return fallback}}
 function esc(v){return String(v??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]))}
-function stores(){const v=read('fc_lojas',[]);return Array.isArray(v)?v:[]}
-function execs(){const v=read('fc_execucoes',{});return v&&typeof v==='object'?v:{} }
+function stores(){const v=read('fc_lojas',null);if(Array.isArray(v)&&v.length)return v;const w=Array.isArray(window.lojas)?window.lojas:[];return w}
+function execs(){const v=read('fc_execucoes',null);if(v&&typeof v==='object'&&Object.keys(v).length)return v;const w=window.execucoes;return w&&typeof w==='object'?w:{} }
+function prazosData(){const keys=['fc_prazos_v2','fc_prazos'];for(const k of keys){const v=read(k,null);if(Array.isArray(v)&&v.length)return v}const w=window.prazos;return Array.isArray(w)?w:[]}
 function currentUser(){return (document.getElementById('usuario')?.value||'Daniela').trim()}
 function manager(){return currentUser()==='Daniela'||currentUser()==='Leonardo'}
 function analystStores(name){return stores().filter(l=>l&&l.ativo!==false&&l.analista===name)}
@@ -28,7 +29,7 @@ function renderApuracoesFix(){
 }
 function renderPrazosFix(){
  const cards=document.getElementById('deadlineCards'),table=document.getElementById('deadlineTable');if(!cards||!table)return;
- const prazos=read('fc_prazos_v2',[]);const list=Array.isArray(prazos)?prazos:[];
+ const list=prazosData();
  cards.innerHTML=OPS_UFS.map(uf=>`<div class="card pad"><div class="cardTitle"><h3>${uf}</h3><span class="badge blue">${list.filter(p=>p.uf===uf&&p.data).length}/${OPS_TAXES.length} cadastrados</span></div>${OPS_TAXES.map(ob=>{const p=list.find(x=>x.uf===uf&&x.obrigacao===ob)||{uf,obrigacao:ob};return `<div class="metric"><b>${esc(ob)}</b><button class="btn" type="button" data-op-deadline-uf="${uf}" data-op-deadline-ob="${esc(ob)}">${esc(p.data||p.obs||'Não cadastrado')}</button></div>`}).join('')}</div>`).join('');
  table.innerHTML=OPS_UFS.flatMap(uf=>OPS_TAXES.map(ob=>{const p=list.find(x=>x.uf===uf&&x.obrigacao===ob)||{};return `<tr><td>${esc(ob)}</td><td>${uf}</td><td>${esc(p.data||'—')}</td><td>${esc(p.obs||'—')}</td></tr>`})).join('');
  cards.querySelectorAll('[data-op-deadline-uf]').forEach(b=>b.onclick=()=>{if(typeof window.openDeadline==='function')window.openDeadline(b.dataset.opDeadlineUf,b.dataset.opDeadlineOb)});
