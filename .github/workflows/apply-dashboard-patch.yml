@@ -27,7 +27,8 @@ jobs:
               '<script src="dashboard-patch.js"></script>',
               '<script src="equipe-data-fix.js"></script>',
               '<script src="dashboard-patch-teamfix.js"></script>',
-              '<script src="carteiras-data-fix.js"></script>'
+              '<script src="carteiras-data-fix.js"></script>',
+              '<script src="operational-pages-fix.js"></script>'
           ]
           for tag in tags:
               if tag not in s:
@@ -39,5 +40,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
           git diff --cached --quiet && exit 0
-          git commit -m "Corrige população completa das Carteiras"
+          git commit -m "Ativa correção das telas Apurações e Prazos"
           git push
