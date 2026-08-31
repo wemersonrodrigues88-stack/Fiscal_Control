@@ -1,0 +1,39 @@
+name: Aplicar patch do dashboard
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'index.html'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inserir patch do dashboard
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          tag = '<script src="dashboard-patch.js"></script>'
+          if tag not in s:
+              marker = '</body>'
+              if marker not in s:
+                  raise SystemExit('Marcador </body> não encontrado')
+              s = s.replace(marker, tag + marker, 1)
+              p.write_text(s, encoding='utf-8')
+          else:
+              print('Patch já está ativo no index.html')
+      - name: Publicar patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Ativa patch de acompanhamento e equipe"
+          git push
