@@ -7,6 +7,13 @@
     {key:'SPED ICMS',label:'SPED'},
     {key:'Fronteiras',label:'Fronteiras'}
   ];
+  function isManagement(){
+    const el=document.getElementById('usuario');
+    const value=(el&&el.value||'').trim();
+    const option=el&&el.options&&el.selectedIndex>=0?el.options[el.selectedIndex]:null;
+    const text=(option&&option.textContent||'').trim();
+    return /^(Leonardo|Daniela)$/i.test(value)||/^(Leonardo|Daniela)$/i.test(text);
+  }
   function statusOf(loja,tax){
     const e=(window.execucoes||{})[(loja.id)+'|'+tax.key];
     if(!e||!e.status) return {label:'Pendente',cls:'yellowbg'};
@@ -14,7 +21,7 @@
     if(e.status==='Finalizada'||e.status==='Finalizado') return {label:'Finalizado',cls:'greenbg'};
     return {label:e.status,cls:'gray'};
   }
-  function esc2(v){return typeof window.esc==='function'?window.esc(v):String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+  function esc2(v){return typeof window.esc==='function'?window.esc(v):String(v??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]));}
   function ensureStyle(){
     if(document.getElementById('fc-acomp-style')) return;
     const s=document.createElement('style');s.id='fc-acomp-style';s.textContent=`
@@ -22,6 +29,7 @@
       .fc-acomp-btn{border:1px solid #e1e7ef;background:#fff;color:#172033;border-radius:9px;padding:9px 12px;font:inherit;font-weight:750;cursor:pointer}
       .fc-acomp-btn.primary{background:#1769e0;border-color:#1769e0;color:#fff}
       .fc-acomp-btn.individual{background:#eaf1ff;border-color:#cfe0ff;color:#185ebc}
+      .fc-acomp-btn.team{background:#fff;border-color:#b9e5d3;color:#087453}
       .fc-acomp-modal{position:fixed;inset:0;background:#0c152a99;display:none;place-items:center;z-index:80;padding:14px}
       .fc-acomp-modal.show{display:grid}
       .fc-acomp-box{background:#fff;width:min(1250px,100%);max-height:92vh;overflow:auto;border-radius:17px;box-shadow:0 25px 80px #0004}
@@ -39,24 +47,31 @@
       @media(max-width:560px){.fc-analyst-grid{grid-template-columns:1fr}.fc-acomp-head{align-items:flex-start}.fc-acomp-box{max-height:95vh}}
     `;document.head.appendChild(s);
   }
+  function applyManagementVisibility(){
+    const actions=document.getElementById('fc-acomp-actions');
+    if(actions) actions.style.display=isManagement()?'flex':'none';
+  }
   function ensureUI(){
     ensureStyle();
     const head=document.querySelector('#page-dashboard .head');
     if(head && !document.getElementById('fc-acomp-actions')){
       const actions=head.querySelector('.actions');
       const wrap=document.createElement('div');wrap.id='fc-acomp-actions';wrap.className='fc-acomp-actions';
-      wrap.innerHTML='<button type="button" class="fc-acomp-btn primary" id="fc-geral">Acompanhamento geral</button><button type="button" class="fc-acomp-btn individual" id="fc-individual">Acompanhamento individual</button>';
+      wrap.innerHTML='<button type="button" class="fc-acomp-btn primary" id="fc-geral">Acompanhamento geral</button><button type="button" class="fc-acomp-btn individual" id="fc-individual">Acompanhamento individual</button><button type="button" class="fc-acomp-btn team" id="fc-team">Equipe — lista completa</button>';
       (actions||head).appendChild(wrap);
-      document.getElementById('fc-geral').onclick=()=>openGeneral();
-      document.getElementById('fc-individual').onclick=()=>openIndividual();
+      document.getElementById('fc-geral').onclick=()=>{if(isManagement())openGeneral()};
+      document.getElementById('fc-individual').onclick=()=>{if(isManagement())openIndividual()};
+      document.getElementById('fc-team').onclick=()=>{if(isManagement())openTeamList()};
     }
     if(!document.getElementById('fc-acomp-modal')){
       const m=document.createElement('div');m.id='fc-acomp-modal';m.className='fc-acomp-modal';m.innerHTML=`<div class="fc-acomp-box"><div class="fc-acomp-head"><div><h2 id="fc-acomp-title"></h2><div class="fc-acomp-sub" id="fc-acomp-sub"></div></div><button type="button" class="fc-acomp-btn" id="fc-acomp-close">Fechar</button></div><div class="fc-acomp-body" id="fc-acomp-body"></div></div>`;document.body.appendChild(m);
       document.getElementById('fc-acomp-close').onclick=closeModal;
       m.addEventListener('click',e=>{if(e.target===m)closeModal()});
     }
+    applyManagementVisibility();
   }
   function openGeneral(){
+    if(!isManagement()) return;
     ensureUI();
     const body=document.getElementById('fc-acomp-body');
     document.getElementById('fc-acomp-title').textContent='Acompanhamento geral';
@@ -67,6 +82,7 @@
     document.getElementById('fc-geral-search').oninput=draw;draw();document.getElementById('fc-acomp-modal').classList.add('show');
   }
   function openIndividual(){
+    if(!isManagement()) return;
     ensureUI();
     const body=document.getElementById('fc-acomp-body');
     document.getElementById('fc-acomp-title').textContent='Acompanhamento individual';
@@ -77,6 +93,17 @@
     analysts.forEach((a,i)=>{const stores=(window.lojas||[]).filter(l=>l&&l.ativo!==false&&l.analista===a.nome);const c=document.createElement('button');c.type='button';c.className='fc-analyst-card'+(i===0?' active':'');c.innerHTML=`<b>${esc2(a.nome)}</b><small>${esc2(a.nivel)} · ${stores.length} loja(s)</small>`;c.onclick=()=>{grid.querySelectorAll('.fc-analyst-card').forEach(x=>x.classList.remove('active'));c.classList.add('active');drawAnalyst(a)};grid.appendChild(c)});
     if(analysts.length) drawAnalyst(analysts[0]); else document.getElementById('fc-individual-content').innerHTML='<div class="fc-empty">Nenhum analista cadastrado.</div>';
     document.getElementById('fc-acomp-modal').classList.add('show');
+  }
+  function openTeamList(){
+    if(!isManagement()) return;
+    ensureUI();
+    const body=document.getElementById('fc-acomp-body');
+    document.getElementById('fc-acomp-title').textContent='Equipe — lista completa de colaboradores';
+    const team=Array.isArray(window.equipe)?window.equipe:[];
+    document.getElementById('fc-acomp-sub').textContent=team.length+' colaborador(es) cadastrados';
+    body.innerHTML=`<div class="fc-acomp-toolbar"><div><b>Todos os colaboradores</b><div class="fc-acomp-sub">Coordenador, gerente e analistas cadastrados no Fiscal Control</div></div><input id="fc-team-search" class="fc-acomp-search" placeholder="🔎 Buscar colaborador"></div><div class="fc-acomp-table-wrap"><table class="fc-acomp-table" style="min-width:620px"><thead><tr><th>Colaborador</th><th>Função</th><th>Nível</th><th>Status</th></tr></thead><tbody id="fc-team-body"></tbody></table></div>`;
+    const draw=()=>{const q=(document.getElementById('fc-team-search').value||'').toLowerCase().trim();const arr=team.filter(e=>`${e.nome??''} ${e.funcao??''} ${e.nivel??''} ${e.status??''}`.toLowerCase().includes(q));document.getElementById('fc-team-body').innerHTML=arr.map(e=>`<tr><td><b>${esc2(e.nome)}</b></td><td>${esc2(e.funcao||'—')}</td><td>${esc2(e.nivel||'—')}</td><td>${esc2(e.status||'Ativo')}</td></tr>`).join('')||'<tr><td colspan="4" class="fc-empty">Nenhum colaborador encontrado.</td></tr>'};
+    document.getElementById('fc-team-search').oninput=draw;draw();document.getElementById('fc-acomp-modal').classList.add('show');
   }
   function drawAnalyst(a){
     const stores=(window.lojas||[]).filter(l=>l&&l.ativo!==false&&l.analista===a.nome);
@@ -90,6 +117,8 @@
       window.__fcAcompRender=true;
     }
     ensureUI();
+    const usuario=document.getElementById('usuario');
+    if(usuario&&!usuario.__fcMgmtListener){usuario.addEventListener('change',()=>setTimeout(applyManagementVisibility,0));usuario.__fcMgmtListener=true;}
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',patchRender); else patchRender();
 })();
