@@ -29,7 +29,6 @@
       .fc-acomp-btn{border:1px solid #e1e7ef;background:#fff;color:#172033;border-radius:9px;padding:9px 12px;font:inherit;font-weight:750;cursor:pointer}
       .fc-acomp-btn.primary{background:#1769e0;border-color:#1769e0;color:#fff}
       .fc-acomp-btn.individual{background:#eaf1ff;border-color:#cfe0ff;color:#185ebc}
-      .fc-acomp-btn.team{background:#fff;border-color:#b9e5d3;color:#087453}
       .fc-acomp-modal{position:fixed;inset:0;background:#0c152a99;display:none;place-items:center;z-index:80;padding:14px}
       .fc-acomp-modal.show{display:grid}
       .fc-acomp-box{background:#fff;width:min(1250px,100%);max-height:92vh;overflow:auto;border-radius:17px;box-shadow:0 25px 80px #0004}
@@ -57,11 +56,10 @@
     if(head && !document.getElementById('fc-acomp-actions')){
       const actions=head.querySelector('.actions');
       const wrap=document.createElement('div');wrap.id='fc-acomp-actions';wrap.className='fc-acomp-actions';
-      wrap.innerHTML='<button type="button" class="fc-acomp-btn primary" id="fc-geral">Acompanhamento geral</button><button type="button" class="fc-acomp-btn individual" id="fc-individual">Acompanhamento individual</button><button type="button" class="fc-acomp-btn team" id="fc-team">Equipe — lista completa</button>';
+      wrap.innerHTML='<button type="button" class="fc-acomp-btn primary" id="fc-geral">Acompanhamento geral</button><button type="button" class="fc-acomp-btn individual" id="fc-individual">Acompanhamento individual</button>';
       (actions||head).appendChild(wrap);
       document.getElementById('fc-geral').onclick=()=>{if(isManagement())openGeneral()};
       document.getElementById('fc-individual').onclick=()=>{if(isManagement())openIndividual()};
-      document.getElementById('fc-team').onclick=()=>{if(isManagement())openTeamList()};
     }
     if(!document.getElementById('fc-acomp-modal')){
       const m=document.createElement('div');m.id='fc-acomp-modal';m.className='fc-acomp-modal';m.innerHTML=`<div class="fc-acomp-box"><div class="fc-acomp-head"><div><h2 id="fc-acomp-title"></h2><div class="fc-acomp-sub" id="fc-acomp-sub"></div></div><button type="button" class="fc-acomp-btn" id="fc-acomp-close">Fechar</button></div><div class="fc-acomp-body" id="fc-acomp-body"></div></div>`;document.body.appendChild(m);
