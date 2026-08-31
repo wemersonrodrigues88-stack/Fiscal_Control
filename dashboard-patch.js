@@ -21,6 +21,18 @@
     return{label:e.status,cls:'gray'};
   }
 
+  function hideUnapprovedHomeBlocks(){
+    const page=document.getElementById('page-dashboard');
+    if(!page)return;
+    [...page.querySelectorAll('.cardTitle h3')].forEach(h=>{
+      const t=(h.textContent||'').trim().toLowerCase();
+      if(t==='analistas'||t==='quem pode ajudar?'){
+        const card=h.closest('.card');
+        if(card)card.style.display='none';
+      }
+    });
+  }
+
   function ensureStyle(){
     if(document.getElementById('fc-acomp-style'))return;
     const s=document.createElement('style');s.id='fc-acomp-style';
@@ -57,6 +69,7 @@
 
   function ensureUI(){
     ensureStyle();
+    hideUnapprovedHomeBlocks();
     const head=document.querySelector('#page-dashboard .head');
     if(head&&!document.getElementById('fc-acomp-actions')){
       const actions=head.querySelector('.actions');
