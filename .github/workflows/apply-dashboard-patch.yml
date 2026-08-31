@@ -1,4 +1,4 @@
-name: Aplicar patch do dashboard
+name: Aplicar correções do dashboard
 
 on:
   push:
@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Inserir patches do dashboard
+      - name: Ativar scripts de correção
         shell: python
         run: |
           from pathlib import Path
@@ -25,17 +25,17 @@ jobs:
               raise SystemExit('Marcador </body> não encontrado')
           tags = [
               '<script src="dashboard-patch.js"></script>',
-              '<script src="dashboard-patch-teamfix.js"></script>'
+              '<script src="equipe-data-fix.js"></script>'
           ]
           for tag in tags:
               if tag not in s:
                   s = s.replace(marker, tag + marker, 1)
           p.write_text(s, encoding='utf-8')
-      - name: Publicar patches
+      - name: Publicar correções
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
           git diff --cached --quiet && exit 0
-          git commit -m "Ativa correção da lista completa da Equipe"
+          git commit -m "Corrige lista completa da Equipe"
           git push
