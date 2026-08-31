@@ -1,6 +1,6 @@
 const SESSION_COOKIE = 'fc_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 12;
-const PASSWORD_ITERATIONS = 310000;
+const PASSWORD_ITERATIONS = 100000;
 const ALL_PAGES = ['dashboard','apuracoes','carteiras','prazos','historico','equipe'];
 const VALID_STATUS = ['Ativo','Férias','Licença médica','Demissão','Pediu demissão'];
 const RULES = { Analista: ['dashboard','apuracoes'], Coordenador: ALL_PAGES, Gerente: ALL_PAGES };
