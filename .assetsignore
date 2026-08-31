@@ -1,0 +1,8 @@
+.github
+src
+schema-auth.sql
+auth-migration-plan.md
+DEPLOY_TRIGGER.txt
+README.md
+wrangler.jsonc
+.assetsignore
