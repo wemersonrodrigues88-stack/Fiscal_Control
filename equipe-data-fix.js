@@ -66,11 +66,30 @@ function watchTeamChanges(){
   }
   setInterval(()=>{const now=teamSignature();if(now!==last){last=now;refreshAfterTeamChange()}syncStatusViews()},300);
 }
+function refreshAfterButton(){
+  setTimeout(()=>{
+    try{
+      loadData();
+      if(typeof window.render==='function')window.render();
+      renderEquipeCompleta();
+      syncStatusViews();
+    }catch(err){console.error('Fiscal Control: erro na atualização automática',err)}
+  },0);
+}
+function watchAllButtons(){
+  if(window.__fcAllButtonsAutoRefresh)return;
+  window.__fcAllButtonsAutoRefresh=true;
+  document.addEventListener('click',function(ev){
+    const btn=ev.target&&ev.target.closest?ev.target.closest('button'):null;
+    if(btn)refreshAfterButton();
+  },true);
+}
 function init(){
   loadData();
   renderEquipeCompleta();
   syncStatusViews();
   watchTeamChanges();
+  watchAllButtons();
   document.querySelectorAll('.nav button[data-page="equipe"]').forEach(btn=>{
     if(btn.__fcTeamFix)return;
     const old=btn.onclick;
