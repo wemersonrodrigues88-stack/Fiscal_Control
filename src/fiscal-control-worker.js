@@ -175,7 +175,7 @@ async function changePassword(request, env, user) {
   return json({ ok: true });
 }
 
-async function listUsers(request, env, actor) {
+async function listUsers(env, actor) {
   if (!canManage(actor)) return json({ error: 'Acesso gerencial não autorizado.' }, 403);
   const result = await env.DB.prepare('SELECT id,username,display_name,profile,privilege,status,must_change_password,created_at,updated_at FROM users ORDER BY display_name').all();
   return json({ users: result.results || [] });
@@ -194,8 +194,7 @@ async function createUser(request, env, actor) {
   if (!PROFILE_RULES[perfil] || !['Ativo','Férias','Licença médica','Demissão','Pediu demissão'].includes(status)) return json({ error: 'Perfil ou situação inválidos.' }, 400);
   const rec = await makePasswordRecord(password);
   try {
-    await env.DB.prepare('INSERT INTO users(username,display_name,profile,privilege,status,password_hash,password_salt,password_iterations,must_change_password) VALUES(?,?,?,?,?,?,?,?,1)')
-      .bind(username,nome,perfil,privilegio,status,rec.hash,rec.salt,rec.iterations).run();
+    await env.DB.prepare('INSERT INTO users(username,display_name,profile,privilege,status,password_hash,password_salt,password_iterations,must_change_password) VALUES(?,?,?,?,?,?,?,?,1)').bind(username,nome,perfil,privilegio,status,rec.hash,rec.salt,rec.iterations).run();
   } catch (_) { return json({ error: 'Não foi possível criar o usuário. Verifique se o usuário já existe.' }, 409); }
   return json({ ok: true });
 }
@@ -209,7 +208,7 @@ async function updateUser(request, env, actor, username) {
   const status = body?.situacao ? String(body.situacao) : row.status;
   const privilegio = canChangePrivilege(actor) && body && Object.prototype.hasOwnProperty.call(body,'privilegio') ? (body.privilegio === 'Desenvolvedor' ? 'Desenvolvedor' : null) : row.privilege;
   if (!PROFILE_RULES[perfil] || !['Ativo','Férias','Licença médica','Demissão','Pediu demissão'].includes(status)) return json({ error: 'Perfil ou situação inválidos.' }, 400);
-  if (String(row.username) === 'wemerson' && actor.username === 'wemerson' && status !== 'Ativo') return json({ error: 'O usuário desenvolvedor não pode ser desativado por esta rotina.' }, 400);
+  if (row.username === 'wemerson' && actor.username === 'wemerson' && status !== 'Ativo') return json({ error: 'O usuário desenvolvedor não pode ser desativado por esta rotina.' }, 400);
   if (body?.password) {
     if (String(body.password).length < 10) return json({ error: 'A senha deve ter pelo menos 10 caracteres.' }, 400);
     const rec = await makePasswordRecord(String(body.password));
@@ -236,8 +235,7 @@ async function bootstrap(request, env) {
     const rec = await makePasswordRecord(password);
     await env.DB.prepare(`INSERT INTO users(username,display_name,profile,privilege,status,password_hash,password_salt,password_iterations,must_change_password)
       VALUES(?,?,?,?,?,?,?,?,1)
-      ON CONFLICT(username) DO UPDATE SET display_name=excluded.display_name,profile=excluded.profile,privilege=excluded.privilege,status='Ativo',password_hash=excluded.password_hash,password_salt=excluded.password_salt,password_iterations=excluded.password_iterations,must_change_password=1,updated_at=datetime('now')`)
-      .bind(username,nome,perfil,privilegio, 'Ativo',rec.hash,rec.salt,rec.iterations).run();
+      ON CONFLICT(username) DO UPDATE SET display_name=excluded.display_name,profile=excluded.profile,privilege=excluded.privilege,status='Ativo',password_hash=excluded.password_hash,password_salt=excluded.password_salt,password_iterations=excluded.password_iterations,must_change_password=1,updated_at=datetime('now')`).bind(username,nome,perfil,privilegio,'Ativo',rec.hash,rec.salt,rec.iterations).run();
   }
   return json({ ok: true, count: body.users.length });
 }
@@ -264,7 +262,7 @@ async function api(request, env) {
   if (pathname === '/api/users') {
     const actor = await requireUser(request, env);
     if (!actor || actor.error) return json({ error: 'Não autenticado.' }, 401);
-    if (request.method === 'GET') return listUsers(request, env, actor);
+    if (request.method === 'GET') return listUsers(env, actor);
     if (request.method === 'POST') return createUser(request, env, actor);
   }
   const match = pathname.match(/^\/api\/users\/([^/]+)$/);
@@ -277,22 +275,12 @@ async function api(request, env) {
   return null;
 }
 
-function securityHeaders(headers) {
+function secureHeaders(headers) {
   headers.set('X-Content-Type-Options', 'nosniff');
   headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   headers.set('X-Frame-Options', 'DENY');
   headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   return headers;
-}
-
-async function serveAsset(request, env) {
-  const response = await env.ASSETS.fetch(request);
-  const headers = securityHeaders(new Headers(response.headers));
-  if ((headers.get('content-type') || '').includes('text/html')) {
-    headers.set('Cache-Control', 'no-store');
-    return new HTMLRewriter().on('head', { element(el) => {} }).transform(new Response(response.body, { status: response.status, statusText: response.statusText, headers }));
-  }
-  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
 export default {
@@ -301,7 +289,7 @@ export default {
       const result = await api(request, env);
       if (result) return result;
       const response = await env.ASSETS.fetch(request);
-      const headers = securityHeaders(new Headers(response.headers));
+      const headers = secureHeaders(new Headers(response.headers));
       if ((headers.get('content-type') || '').includes('text/html')) {
         headers.set('Cache-Control', 'no-store');
         return new HTMLRewriter().on('head', {
