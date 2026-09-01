@@ -1,26 +1,18 @@
 # Fiscal Control
 
-Projeto 2 — sistema independente para gestão mensal do setor fiscal.
+Sistema de gestão fiscal mensal com autenticação por perfil e persistência central compartilhada.
 
-## Objetivo
-Centralizar o acompanhamento de obrigações, vencimentos, lojas e carteiras dos analistas, reduzindo listas de WhatsApp e permitindo ao coordenador e à gerente tomar decisões com base no andamento real.
+## Estado operacional
 
-## Estrutura inicial
-- Daniela — Gerente
-- Leonardo — Coordenador
-- Juliane — Sênior
-- Luanna — Júnior
-- Dennys — Sênior
-- Julia — Pleno
-- Taciana — Pleno
-- Lívia — Sênior
-- Augustus — Pleno
-- Gustavo — Pleno
-- Angela — Pleno
-- Michael — Analista, nível não definido
+A interface da versão congelada é preservada. O estado operacional `fc_*` é sincronizado entre os usuários por D1 através do Worker, permitindo que alterações feitas por gerente, coordenador ou analista sejam compartilhadas entre dispositivos.
 
-## Estados
-PE, AL e PB. Os vencimentos são cadastrados por obrigação e estado, pois podem variar entre as unidades federativas.
+## Regra de validação
 
-## Regra do projeto
-Este repositório é exclusivo do Fiscal Control e não deve ser misturado ao Radar Tributário.
+Antes de considerar a persistência concluída, validar em dois dispositivos:
+
+1. Gerente adiciona uma loja para um analista e salva.
+2. Outro dispositivo, logado como o analista, atualiza a tela.
+3. A loja deve aparecer imediatamente na carteira do analista.
+4. Repetir o teste no sentido inverso com uma alteração operacional.
+
+A interface não deve receber novas funcionalidades enquanto a persistência estiver sendo validada.
