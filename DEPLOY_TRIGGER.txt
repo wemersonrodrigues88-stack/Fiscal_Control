@@ -1,1 +1,1 @@
-Fiscal Control — deploy definitivo da persistência central D1 — gerente <-> coordenador <-> analista — todas as alterações fc_* sincronizadas entre dispositivos.
+Fiscal Control — persistência central D1 ativada — sincronização bidirecional de todos os estados fc_* entre dispositivos.
