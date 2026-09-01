@@ -11,6 +11,7 @@ function currentUser(){return (document.getElementById('usuario')?.value||'Danie
 function manager(){return currentUser()==='Daniela'||currentUser()==='Leonardo'}
 function analystStores(name){return stores().filter(l=>l&&l.ativo!==false&&l.analista===name)}
 function statusFor(l,ob){const e=execs()[(l.id)+'|'+ob];return e&&e.status?e.status:'Pendente'}
+function statusClass(st){return st==='Finalizada'?'greenbg':(st==='Analisando'?'blue':(st==='Gerando Query'?'blue':'yellowbg'))}
 function renderApuracoesFix(){
  const cards=document.getElementById('taxCards');if(!cards)return;
  const q=(document.getElementById('busca')?.value||'').trim().toLowerCase();
@@ -22,7 +23,7 @@ function renderApuracoesFix(){
  cards.innerHTML=obs.map(ob=>{
    const units=base.filter(l=>!Array.isArray(l.impostos)||l.impostos.length===0||l.impostos.includes(ob));
    const done=units.filter(l=>statusFor(l,ob)==='Finalizada').length;
-   return `<div class="card tax"><div class="taxHead"><div><h3>${esc(ob)}</h3><div class="taxMeta">${units.length} loja(s)</div></div><span class="badge blue">${done}/${units.length}</span></div>${units.map(l=>{const st=statusFor(l,ob);return `<div class="store"><div class="storeTop"><div><div class="storeName">${esc(l.numero)} · ${esc(l.nome)}</div><div class="state">${esc(l.uf)} · ${esc(l.analista||'Sem carteira')}</div></div><span class="status ${st==='Finalizada'?'greenbg':st==='Analisando'?'blue':'yellowbg'} badge">${esc(st)}</span></div><div class="rowBtns"><button class="btn ${st==='Analisando'?'yellow':''}" type="button" data-op-analysis="${l.id}" data-op-tax="${esc(ob)}">Analisando</button><button class="btn green" type="button" data-op-final="${l.id}" data-op-tax="${esc(ob)}">Finalizar</button></div></div>`}).join('')}</div>`
+   return `<div class="card tax"><div class="taxHead"><div><h3>${esc(ob)}</h3><div class="taxMeta">${units.length} loja(s)</div></div><span class="badge blue">${done}/${units.length}</span></div>${units.map(l=>{const st=statusFor(l,ob);return `<div class="store"><div class="storeTop"><div><div class="storeName">${esc(l.numero)} · ${esc(l.nome)}</div><div class="state">${esc(l.uf)} · ${esc(l.analista||'Sem carteira')}</div></div><span class="status ${statusClass(st)} badge">${esc(st)}</span></div><div class="rowBtns"><button class="btn ${st==='Analisando'?'yellow':''}" type="button" data-op-analysis="${l.id}" data-op-tax="${esc(ob)}">Analisando</button><button class="btn green" type="button" data-op-final="${l.id}" data-op-tax="${esc(ob)}">Finalizar</button></div></div>`}).join('')}</div>`
  }).join('')||'<div class="alert blue">Nenhuma loja encontrada.</div>';
  cards.querySelectorAll('[data-op-analysis]').forEach(b=>b.onclick=()=>{if(typeof window.setStatus==='function')window.setStatus(Number(b.dataset.opAnalysis),b.dataset.opTax,'Analisando');else renderApuracoesFix()});
  cards.querySelectorAll('[data-op-final]').forEach(b=>b.onclick=()=>{if(typeof window.finalizar==='function')window.finalizar(Number(b.dataset.opFinal),b.dataset.opTax);else renderApuracoesFix()});
