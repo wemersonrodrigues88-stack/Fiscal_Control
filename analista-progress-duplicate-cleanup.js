@@ -3,17 +3,14 @@
   'use strict';
 
   function currentUser(){
-    try{return String(document.getElementById('usuario')?.value||'').trim()}catch(e){return ''}
+    try{return String(window.FC_AUTH?.user?.nome||window.FCAuth?.getUser?.()?.nome||'').trim()}catch(e){return ''}
   }
 
   function isAnalyst(){
-    const u=currentUser();
-    if(!u)return false;
-    if(u==='Daniela'||u==='Leonardo')return false;
     try{
-      const equipe=JSON.parse(localStorage.getItem('fc_equipe')||'[]');
-      const p=Array.isArray(equipe)?equipe.find(x=>x&&x.nome===u):null;
-      return !!p&&String(p.funcao||'').toLowerCase()==='analista';
+      const u=window.FC_AUTH?.user||window.FCAuth?.getUser?.();
+      if(u)return String(u.perfil||'').trim()==='Analista';
+      return false;
     }catch(e){return false}
   }
 
@@ -82,7 +79,7 @@
 (function(){
   function load(){
     if(document.querySelector('script[data-fc-acomp-consolidado]'))return;
-    const s=document.createElement('script');s.src='acompanhamento-gestao-consolidado.js?v=1';s.async=false;s.dataset.fcAcompConsolidado='1';document.body.appendChild(s);
+    const s=document.createElement('script');s.src='acompanhamento-gestao-consolidado.js?v=3';s.async=false;s.dataset.fcAcompConsolidado='1';document.body.appendChild(s);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load);else load();
 })();
