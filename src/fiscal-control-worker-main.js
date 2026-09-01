@@ -72,6 +72,8 @@ async function asset(r,e){
   if(!ct.includes('text/html'))return x;
   let t=await x.text();
   t=t.replace(/<script[^>]+src=["'][^"']*(?:acompanhamento-individual-ativos|gestor-acompanhamento|desenvolvedor-acompanhamento)\.js[^>]*><\/script>/gi,'');
+  t=t.replace(/auth-ui-hardening\.js\?v=[0-9]+/g,'auth-ui-hardening.js?v=2');
+  t=t.replace(/auth-client\.js\?v=[0-9]+/g,'auth-client.js?v=3');
   if(!t.includes('persistencia-central.js'))t=t.replace(/<\/head>/i,'<script src="/persistencia-central.js?v=5"></script></head>');
   if(!t.includes('acompanhamento-gestao-consolidado.js'))t=t.replace(/<\/body>/i,'<script src="/acompanhamento-gestao-consolidado.js?v=4"></script></body>');
   const headers=new Headers(x.headers);
