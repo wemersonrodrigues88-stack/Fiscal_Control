@@ -38,27 +38,26 @@
     if (select) {
       let option = [...select.options].find(o => o.value === name);
       if (!option) { option = new Option(name, name); select.add(option); }
-      select.value = name;
-      select.disabled = true;
-      select.classList.add('fc-auth-identity-select');
+      if (select.value !== name) select.value = name;
+      if (!select.disabled) select.disabled = true;
+      if (!select.classList.contains('fc-auth-identity-select')) select.classList.add('fc-auth-identity-select');
       select.setAttribute('aria-hidden', 'true');
     }
     const avatar = document.getElementById('avatar');
     if (avatar) {
-      avatar.textContent = name.split(/\s+/).map(x => x[0]).slice(0,2).join('').toUpperCase();
+      const initials = name.split(/\s+/).map(x => x[0]).slice(0,2).join('').toUpperCase();
+      if (avatar.textContent !== initials) avatar.textContent = initials;
       avatar.title = 'Sair do sistema';
-      avatar.classList.add('fc-auth-identity-avatar');
+      if (!avatar.classList.contains('fc-auth-identity-avatar')) avatar.classList.add('fc-auth-identity-avatar');
       avatar.onclick = () => {
         if (confirm('Deseja sair do Fiscal Control?')) window.FCAuth?.logout?.();
       };
     }
     const persona = select?.closest('.persona');
-    if (persona) persona.classList.add('fc-auth-identity-locked');
     if (!identityObserverInstalled && persona) {
       identityObserverInstalled = true;
       const observer = new MutationObserver(() => {
-        const u = user();
-        if (u) enforceIdentity();
+        if (user()) enforceIdentity();
       });
       observer.observe(persona, { childList:true, subtree:true });
     }
