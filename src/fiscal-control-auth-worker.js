@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username
 CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT NOT NULL UNIQUE, user_id INTEGER NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT(datetime('now')), FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE);
 CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token_hash);
 CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at);
-INSERT OR IGNORE INTO users(username,display_name,profile,privilege,status) VALUES ('wemerson','Wemerson','Analista','Desenvolvedor','Ativo'),('daniela','Daniela','Gerente',NULL,'Ativo'),('leonardo','Leonardo','Coordenador',NULL,'Ativo');`;
+INSERT OR IGNORE INTO users(username,display_name,profile,privilege,status) VALUES ('wemerson','Wemerson','Analista','Desenvolvedor','Ativo'),('daniela','Daniela','Gerente',NULL,'Ativo'),('leonardo','Leonardo','Coordenador',NULL,'Ativo');
+UPDATE users SET display_name='Wemerson', profile='Analista', privilege='Desenvolvedor', status='Ativo' WHERE username='wemerson';`;
 function json(data,status=200,headers={}){return new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers}})}
 function cookie(req,name){for(const p of (req.headers.get('Cookie')||'').split(';')){const [k,...v]=p.trim().split('=');if(k===name)return v.join('=')}return null}
 function b64(bytes){let s='';for(const b of bytes)s+=String.fromCharCode(b);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
