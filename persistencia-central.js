@@ -31,11 +31,12 @@
       if(!r.ok)return;
       const d=await r.json();
       const states=d.states||[];
-      const remoteKeys=new Set(states.map(x=>x.key));
+      const remoteKeys=new Set(states.map(x=>x.key||x.state_key));
       remote=true;
       for(const x of states){
-        if(!key(x.key)||dirty.has(x.key))continue;
-        if(x.value===null||x.value==='null')R.call(localStorage,x.key);else S.call(localStorage,x.key,String(x.value));
+        const stateKey=x.key||x.state_key; const stateValue=x.value??x.state_value;
+        if(!key(stateKey)||dirty.has(stateKey))continue;
+        if(stateValue===null||stateValue==='null')R.call(localStorage,stateKey);else S.call(localStorage,stateKey,String(stateValue));
       }
       remote=false;
       hydrated=true;

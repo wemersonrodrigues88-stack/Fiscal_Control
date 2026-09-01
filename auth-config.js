@@ -1,15 +1,11 @@
-/* Fiscal Control — ponto de integração da autenticação.
-   IMPORTANTE: não contém senhas nem segredos.
-   A autenticação real deverá ser ligada ao backend/provedor de identidade.
+/* Fiscal Control — integração da autenticação.
+   A identidade e as permissões reais vêm exclusivamente do Worker/D1.
 */
 window.FC_AUTH_CONFIG={
-  version:1,
+  version:2,
   mode:'backend-required',
-  loginPath:'/login',
+  loginPath:'/api/login',
   sessionKey:'fc_session',
-  roles:{
-    Wemerson:{perfil:'Analista',privilegio:'Desenvolvedor'},
-    Daniela:{perfil:'Gerente',privilegio:null},
-    Leonardo:{perfil:'Coordenador',privilegio:null}
-  }
+  profiles:['Analista','Coordenador','Gerente','Gestão'],
+  privileges:['Desenvolvedor']
 };

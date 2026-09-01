@@ -66,5 +66,5 @@ async function states(r,e){
   }
   return json({error:'Método não permitido.'},405);
 }
-async function asset(r,e){const x=await authWorker.fetch(r,e);const ct=x.headers.get('content-type')||'';if(!ct.includes('text/html'))return x;let t=await x.text();if(!t.includes('persistencia-central.js'))t=t.replace(/<\/head>/i,'<script src="/persistencia-central.js?v=3" defer></script></head>');return new Response(t,{status:x.status,statusText:x.statusText,headers:x.headers})}
+async function asset(r,e){const x=await authWorker.fetch(r,e);const ct=x.headers.get('content-type')||'';if(!ct.includes('text/html'))return x;let t=await x.text();if(!t.includes('persistencia-central.js'))t=t.replace(/<\/head>/i,'<script src="/persistencia-central.js?v=4" defer></script></head>');if(!t.includes('acompanhamento-gestao-consolidado.js'))t=t.replace(/<\/body>/i,'<script src="/acompanhamento-gestao-consolidado.js?v=3"></script></body>');return new Response(t,{status:x.status,statusText:x.statusText,headers:x.headers})}
 export default {async fetch(r,e){try{const p=new URL(r.url).pathname;if(p==='/api/state'||p.startsWith('/api/state/'))return states(r,e);return asset(r,e)}catch(x){console.error(x);return json({error:'Erro interno do Fiscal Control.'},500)}}};

@@ -160,14 +160,10 @@
       button.style.cssText = 'position:fixed;right:260px;top:16px;z-index:9998;border:1px solid #d8e1ef;background:#fff;border-radius:8px;padding:9px 13px;font-weight:700;cursor:pointer;';
       button.title = 'Abrir o acompanhamento gerencial sem trocar o usuário autenticado.';
       button.onclick = () => {
+        const api = window.FiscalControlAcompanhamento;
+        if (api?.openGeneral) { api.openGeneral(); return; }
         const actions = document.getElementById('fcg-actions');
-        if (actions) {
-          actions.scrollIntoView({ behavior:'smooth', block:'center' });
-          const general = actions.querySelector('#fcg-general-btn');
-          if (general) general.focus();
-          return;
-        }
-        if (window.FiscalControlAcompanhamento?.openGeneral) window.FiscalControlAcompanhamento.openGeneral();
+        if (actions) actions.scrollIntoView({ behavior:'smooth', block:'center' });
       };
       document.body.appendChild(button);
     }

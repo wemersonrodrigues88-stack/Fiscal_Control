@@ -11,13 +11,10 @@
   const execs=()=>{const v=read('fc_execucoes',{});return v&&typeof v==='object'?v:{}};
   const alerts=()=>{const v=read('fc_alertas',[]);return Array.isArray(v)?v:[]};
   const esc=v=>typeof window.esc==='function'?window.esc(v):String(v??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]));
-  const currentName=()=>String(document.getElementById('usuario')?.value||'').trim();
   function authUser(){return window.FC_AUTH?.user||window.FCAuth?.getUser?.()||null}
   function management(){
     const u=authUser();
-    if(u?.privilegio==='Desenvolvedor')return true;
-    if(u?.perfil==='Gerente'||u?.perfil==='Coordenador'||u?.profile==='Gerente'||u?.profile==='Coordenador')return true;
-    return ['Daniela','Leonardo'].includes(currentName());
+    return !!u && (u.privilegio==='Desenvolvedor'||u.perfil==='Gerente'||u.perfil==='Coordenador'||u.perfil==='Gestão'||u.profile==='Gerente'||u.profile==='Coordenador'||u.profile==='Gestão');
   }
   function activeAnalysts(){return team().filter(p=>p&&String(p.funcao||'').trim().toLowerCase()==='analista'&&String(p.situacao||'').trim().toLowerCase()==='ativo')}
   function activeStores(){return stores().filter(l=>l&&l.ativo!==false)}
@@ -61,6 +58,8 @@
     }
     const actions=document.getElementById('fcg-actions');
     if(actions)actions.style.display=management()?'flex':'none';
+    const accessButton=document.getElementById('fc-management-access-btn');
+    if(accessButton){ accessButton.onclick=()=>{ if(management()) openGeneral(); }; }
   }
   function summaryHTML(s){return `<div class="fcg-summary"><div class="fcg-kpi"><small>Analistas ativos</small><b>${s.analysts}</b><span>equipe operacional</span></div><div class="fcg-kpi"><small>Lojas ativas</small><b>${s.stores}</b><span>carteiras em execução</span></div><div class="fcg-kpi"><small>Finalizadas</small><b>${s.finalizadas}</b><span>execuções concluídas</span></div><div class="fcg-kpi"><small>Analisando</small><b>${s.analisando}</b><span>em andamento</span></div><div class="fcg-kpi"><small>Pendentes</small><b>${s.pendentes}</b><span>aguardando execução</span></div><div class="fcg-kpi"><small>Alertas</small><b>${s.alerts}</b><span>não lidos</span></div></div>`}
   function openGeneral(){
@@ -96,5 +95,5 @@
   function apply(){try{ensureUI();const a=document.getElementById('fcg-actions');if(a)a.style.display=management()?'flex':'none'}catch(_){} }
   function init(){apply();new MutationObserver(()=>setTimeout(apply,20)).observe(document.body,{childList:true,subtree:true});window.addEventListener('storage',()=>setTimeout(apply,20));document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
-  window.FiscalControlAcompanhamento={openGeneral,openIndividual,close,activeAnalysts,activeStores};
+  window.FiscalControlAcompanhamento={openGeneral,openIndividual,close,activeAnalysts,activeStores,canManage:management};
 })();
