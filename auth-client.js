@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const state = { user: null, ready: false, managementPreview: false };
+  const state = { user: null, ready: false };
 
   function el(tag, attrs = {}, children = []) {
     const node = document.createElement(tag);
@@ -77,19 +77,24 @@
     if (!select || !state.user) return false;
     let option = [...select.options].find(o => o.value === state.user.nome);
     if (!option) { option = new Option(state.user.nome, state.user.nome); select.add(option); }
-    if (!state.managementPreview) select.value = state.user.nome;
+    select.value = state.user.nome;
     select.disabled = true;
     const persona = select.closest('.persona');
     if (persona) select.style.display = 'none';
     const avatar = document.getElementById('avatar');
-    if (avatar) avatar.textContent = state.user.nome.split(/\s+/).map(x => x[0]).slice(0, 2).join('').toUpperCase();
+    if (avatar) {
+      avatar.textContent = state.user.nome.split(/\s+/).map(x => x[0]).slice(0, 2).join('').toUpperCase();
+      avatar.title = 'Sair do sistema';
+      avatar.style.cursor = 'pointer';
+      avatar.onclick = () => { if (confirm('Deseja sair do Fiscal Control?')) logout(); };
+    }
     return true;
   }
 
   function allowedPages() {
     if (!state.user) return [];
     if (state.user.privilegio === 'Desenvolvedor') return ['dashboard','apuracoes','carteiras','prazos','historico','equipe'];
-    if (state.user.perfil === 'Gerente' || state.user.perfil === 'Coordenador') return ['dashboard','apuracoes','carteiras','prazos','historico','equipe'];
+    if (state.user.perfil === 'Gerente' || state.user.perfil === 'Coordenador' || state.user.perfil === 'Gestão') return ['dashboard','apuracoes','carteiras','prazos','historico','equipe'];
     return ['dashboard','apuracoes'];
   }
 
@@ -110,7 +115,7 @@
   async function applyAccess() {
     hideManualUserSelector();
     applyNavAccess();
-    window.FC_AUTH = { user: state.user, allowedPages: allowedPages(), isDeveloper: state.user?.privilegio === 'Desenvolvedor', managementPreview: state.managementPreview };
+    window.FC_AUTH = { user: state.user, allowedPages: allowedPages(), isDeveloper: state.user?.privilegio === 'Desenvolvedor' };
     if (typeof window.render === 'function') { try { window.render(); } catch (_) {} }
     installDeveloperAdmin();
   }
@@ -150,27 +155,22 @@
       button.onclick = openUserAdmin;
       document.body.appendChild(button);
     }
-    if (!document.getElementById('fc-management-preview-btn')) {
-      const button = el('button', { id:'fc-management-preview-btn', type:'button', text:'Visão da gestão' });
+    if (!document.getElementById('fc-management-access-btn')) {
+      const button = el('button', { id:'fc-management-access-btn', type:'button', text:'Visão da gestão' });
       button.style.cssText = 'position:fixed;right:260px;top:16px;z-index:9998;border:1px solid #d8e1ef;background:#fff;border-radius:8px;padding:9px 13px;font-weight:700;cursor:pointer;';
-      button.title = 'Prévia visual do que Gerente/Coordenador enxergam. Não altera seu perfil nem suas permissões.';
-      button.onclick = toggleManagementPreview;
+      button.title = 'Abrir o acompanhamento gerencial sem trocar o usuário autenticado.';
+      button.onclick = () => {
+        const actions = document.getElementById('fcg-actions');
+        if (actions) {
+          actions.scrollIntoView({ behavior:'smooth', block:'center' });
+          const general = actions.querySelector('#fcg-general-btn');
+          if (general) general.focus();
+          return;
+        }
+        if (window.FiscalControlAcompanhamento?.openGeneral) window.FiscalControlAcompanhamento.openGeneral();
+      };
       document.body.appendChild(button);
     }
-  }
-
-  function toggleManagementPreview() {
-    const select = document.getElementById('usuario');
-    if (!select || !state.user) return;
-    state.managementPreview = !state.managementPreview;
-    const target = state.managementPreview ? 'Daniela' : state.user.nome;
-    let option = [...select.options].find(o => o.value === target);
-    if (!option) { option = new Option(target, target); select.add(option); }
-    select.value = target;
-    window.FC_AUTH = { user: state.user, allowedPages: allowedPages(), isDeveloper: true, managementPreview: state.managementPreview };
-    const button = document.getElementById('fc-management-preview-btn');
-    if (button) button.textContent = state.managementPreview ? 'Voltar à minha visão' : 'Visão da gestão';
-    if (typeof window.render === 'function') { try { window.render(); } catch (_) {} }
   }
 
   async function openUserAdmin() {
@@ -179,7 +179,7 @@
     const d = await r.json().catch(()=>({}));
     if (!r.ok) { root.querySelector('.fc-auth-modal-body').textContent = d.error || 'Não foi possível carregar usuários.'; return; }
     const users = d.users || [];
-    root.querySelector('.fc-auth-modal-body').innerHTML = `<p>Altere perfil, situação ou redefina a senha sem mudar o layout principal.</p><div style="display:grid;grid-template-columns:1.4fr .9fr .9fr 1fr .9fr auto;gap:8px;padding:8px 0;font-size:11px;font-weight:800;color:#687589;border-bottom:1px solid #e6ebf2"><span>NOME</span><span>USUÁRIO</span><span>PERFIL</span><span>PRIVILÉGIO</span><span>SITUAÇÃO</span><span>AÇÃO</span></div><div id="fc-users-list"></div><hr><h4>Novo usuário</h4><form id="fc-new-user"><input name="nome" placeholder="Nome" required><input name="username" placeholder="Usuário" required><select name="perfil"><option>Analista</option><option>Coordenador</option><option>Gerente</option></select><select name="situacao"><option>Ativo</option><option>Férias</option><option>Licença médica</option><option>Pediu demissão</option><option>Demissão</option></select><input name="password" type="password" minlength="10" placeholder="Senha inicial" required><button class="fc-auth-submit">Criar usuário</button><div id="fc-users-error" class="fc-auth-error"></div></form>`;
+    root.querySelector('.fc-auth-modal-body').innerHTML = `<p>Altere perfil, situação ou redefina a senha sem mudar o layout principal.</p><div style="display:grid;grid-template-columns:1.4fr .9fr .9fr 1fr .9fr auto;gap:8px;padding:8px 0;font-size:11px;font-weight:800;color:#687589;border-bottom:1px solid #e6ebf2"><span>NOME</span><span>USUÁRIO</span><span>PERFIL</span><span>PRIVILÉGIO</span><span>SITUAÇÃO</span><span>AÇÃO</span></div><div id="fc-users-list"></div><hr><h4>Novo usuário</h4><form id="fc-new-user"><input name="nome" placeholder="Nome" required><input name="username" placeholder="Usuário" required><select name="perfil"><option>Analista</option><option>Coordenador</option><option>Gerente</option><option>Gestão</option></select><select name="situacao"><option>Ativo</option><option>Férias</option><option>Licença médica</option><option>Pediu demissão</option><option>Demissão</option></select><input name="password" type="password" minlength="10" placeholder="Senha inicial" required><button class="fc-auth-submit">Criar usuário</button><div id="fc-users-error" class="fc-auth-error"></div></form>`;
     const list = root.querySelector('#fc-users-list');
     users.forEach(u => {
       const row = document.createElement('div');
@@ -209,10 +209,12 @@
   }
 
   async function logout() {
-    await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
+    await fetch('/api/logout', { method: 'POST', credentials: 'same-origin', cache:'no-store' }).catch(() => {});
     state.user = null;
     const admin = document.getElementById('fc-admin-users-btn'); if(admin) admin.remove();
-    const preview = document.getElementById('fc-management-preview-btn'); if(preview) preview.remove();
+    const management = document.getElementById('fc-management-access-btn'); if(management) management.remove();
+    const avatar = document.getElementById('avatar'); if(avatar) avatar.onclick = null;
+    try { localStorage.removeItem('fc_auth'); } catch (_) {}
     showLogin();
   }
 
@@ -225,4 +227,4 @@
   });
 })();
 
-/* auth-ui activation trigger v4 */
+/* auth-ui activation trigger v5 */
