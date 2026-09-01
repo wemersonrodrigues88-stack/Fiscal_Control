@@ -1,1 +1,1 @@
-Fiscal Control — persistência central D1 ativada.
+Fiscal Control — publicação da persistência central D1.
