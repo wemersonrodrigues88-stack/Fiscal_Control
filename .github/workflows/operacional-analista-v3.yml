@@ -1,0 +1,100 @@
+name: Ajustes finais do analista
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: ${{ !contains(github.event.head_commit.message, 'fix: ajustes finais do fluxo do analista') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Aplicar ajustes operacionais
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          # 1) Dashboard do analista: texto Editar + ordem visual solicitada.
+          p = Path('dashboard-analista-v2.js')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('>Completar cadastro<','>Editar<')
+          s = s.replace('Lojas vinculadas à sua carteira.','Lojas vinculadas à sua carteira.')
+
+          # Move, para o analista, os blocos da coluna direita para a ordem:
+          # Alertas -> Progresso por imposto -> Próximos prazos.
+          old_chart = "wrap.insertAdjacentElement('afterend',card)"
+          new_chart = """const right=document.querySelector('#page-dashboard .grid.two');const alertCard=right?.children?.[1];if(alertCard)alertCard.insertAdjacentElement('afterend',card);else wrap.insertAdjacentElement('afterend',card)"""
+          s = s.replace(old_chart, new_chart)
+
+          # Depois que o dashboard renderizar, mover o card de próximos prazos
+          # para logo abaixo do progresso.
+          move_deadline = r'''  function reorderDashboard(){if(!isAnalyst())return;const page=document.getElementById('page-dashboard');if(!page)return;const right=page.querySelector('.grid.two');if(!right||right.children.length<2)return;const alert=right.children[1];const chart=document.getElementById('fc-analyst-chart-card');const lower=page.querySelector('.dashLower');const deadline=lower?.children?.[1];if(chart&&alert)alert.insertAdjacentElement('afterend',chart);if(deadline&&chart)chart.insertAdjacentElement('afterend',deadline)}
+'''
+          if 'function reorderDashboard()' not in s:
+              s = s.replace('  function protectStoreEdit', move_deadline + '  function protectStoreEdit', 1)
+          s = s.replace('restrictDeadlines();protectStoreEdit()', 'restrictDeadlines();reorderDashboard();protectStoreEdit()', 1)
+          s = s.rstrip() + '\n/* ANALISTA-OPERACIONAL-FIX-V3 */\n'
+          p.write_text(s, encoding='utf-8')
+
+          # 2) Index: adicionar vencimento ISS por loja no cadastro e persistir em fc_lojas.
+          p = Path('index.html')
+          h = p.read_text(encoding='utf-8')
+          marker='<!-- ISS-POR-LOJA-V1 -->'
+          if marker not in h:
+              # Insere um campo específico de ISS no formulário de loja, antes do primeiro campo de impostos.
+              patterns = [
+                  r'(<div[^>]*class="field[^>]*>\s*<label[^>]*>[^<]*(?:Impostos|obriga(?:ç|c)ões)[^<]*</label>)',
+                  r'(<div[^>]*class="checkgrid")',
+                  r'(<div[^>]*class="field full"[^>]*>)'
+              ]
+              field = '<div class="field"><label>Data vencimento ISS</label><input id="lojaVencimentoISS" type="number" min="1" max="31" placeholder="Ex.: 10"><small style="display:block;color:#687589;margin-top:4px">Vencimento municipal da loja (dia do mês).</small></div>'
+              inserted=False
+              for pat in patterns:
+                  m=re.search(pat,h,re.I)
+                  if m:
+                      h=h[:m.start()]+field+h[m.start():]
+                      inserted=True
+                      break
+              if not inserted:
+                  # fallback: coloca no início do modal de cadastro de loja.
+                  m=re.search(r'(<div[^>]*class="modalBody"[^>]*>)',h,re.I)
+                  if m:
+                      h=h[:m.end()]+field+h[m.end():]
+                      inserted=True
+
+              # Inicialização e persistência por localStorage. O código detecta o modal
+              # e o botão de salvar sem depender de um ID específico do botão.
+              js = r'''<script id="iss-por-loja-v1">
+(function(){
+  'use strict';
+  const KEY='fc_lojas';
+  const read=()=>{try{const v=JSON.parse(localStorage.getItem(KEY)||'[]');return Array.isArray(v)?v:[]}catch(e){return[]}};
+  const write=v=>localStorage.setItem(KEY,JSON.stringify(v));
+  const getStoreId=()=>{const el=document.querySelector('[data-loja-id],[data-store-id]');if(el)return Number(el.dataset.lojaId||el.dataset.storeId);return Number(window.__fcEditingStoreId||window.editingStoreId||window.currentStoreId||0)};
+  function field(){return document.getElementById('lojaVencimentoISS')}
+  function currentStore(){const id=getStoreId();if(!id)return null;return read().find(l=>Number(l.id)===id)||null}
+  function hydrate(){const f=field();if(!f)return;const l=currentStore();f.value=l?.vencimentoISS??l?.issVencimento??''}
+  function saveValue(){const f=field();if(!f)return;const id=getStoreId();if(!id)return;const lojas=read();const i=lojas.findIndex(l=>Number(l.id)===id);if(i<0)return;let v=String(f.value||'').trim();if(v){let n=Number(v);if(!Number.isInteger(n)||n<1||n>31){f.setCustomValidity('Informe um dia entre 1 e 31.');f.reportValidity();return false}f.setCustomValidity('');lojas[i].vencimentoISS=n;lojas[i].issVencimento=n}else{f.setCustomValidity('');delete lojas[i].vencimentoISS;delete lojas[i].issVencimento}write(lojas);return true}
+  function observe(){hydrate();const modal=document.querySelector('.modalBack.show,.modalBack[style*="display"]');if(!modal)return;modal.querySelectorAll('button').forEach(b=>{if(b.dataset.issHook)return;const t=(b.textContent||'').trim().toLowerCase();if(t.includes('salvar')||t.includes('cadastrar')){b.dataset.issHook='1';b.addEventListener('click',e=>{if(!saveValue()){e.preventDefault();e.stopImmediatePropagation()}} ,true)}})}
+  const mo=new MutationObserver(observe);mo.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style']});setInterval(observe,700);observe();
+  window.FCISSLoja={hydrate,save:saveValue};
+})();
+</script>'''
+              h=h.replace('</body>',js+'</body>')
+              h=h.replace(marker,'')
+              h += '\n'+marker+'\n'
+              p.write_text(h,encoding='utf-8')
+
+      - name: Publicar
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dashboard-analista-v2.js index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "fix: ajustes finais do fluxo do analista"
+          git push
