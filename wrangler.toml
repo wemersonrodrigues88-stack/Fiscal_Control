@@ -1,0 +1,13 @@
+name = "fiscal-control"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+
+[assets]
+directory = "public"
+binding = "ASSETS"
+
+# Bind the existing Cloudflare D1 database before deployment.
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "fiscal-control"
+# database_id = "COLOQUE_O_DATABASE_ID_AQUI"
