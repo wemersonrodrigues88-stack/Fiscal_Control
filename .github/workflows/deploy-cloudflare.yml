@@ -14,4 +14,50 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 list --json > d1.json
+      - name: Resolve or create D1 database
+        shell: bash
+        run: |
+          set -euo pipefail
+          DB_ID=$(node -e "const x=require('./d1.json'); const d=x.find(v=>v.name==='fiscal-control'); if(d) process.stdout.write(d.uuid)")
+          if [ -z "$DB_ID" ]; then
+            npx wrangler d1 create fiscal-control --json > created.json
+            DB_ID=$(node -e "const x=require('./created.json'); process.stdout.write(x.result.uuid)")
+          fi
+          cat > wrangler.toml <<EOF
+          name = "fiscal-control"
+          main = "worker.js"
+          compatibility_date = "2026-09-01"
+          [assets]
+          directory = "public"
+          binding = "ASSETS"
+          [[d1_databases]]
+          binding = "DB"
+          database_name = "fiscal-control"
+          database_id = "$DB_ID"
+          EOF
+      - name: Apply database schema
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 execute fiscal-control --remote --file=schema.sql
+      - name: Seed initial roles and team
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 execute fiscal-control --remote --file=seed.sql
+      - name: Ensure session secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          SECRETS=$(npx wrangler secret list --json)
+          if ! node -e "const x=JSON.parse(process.argv[1]); process.exit(x.some(s=>s.name==='SESSION_SECRET')?0:1)" "$SECRETS"; then
+            openssl rand -hex 32 | npx wrangler secret put SESSION_SECRET
+          fi
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy
