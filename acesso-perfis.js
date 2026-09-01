@@ -29,4 +29,49 @@ function canSeePage(page){
 }
 function expose(){window.FC_ACCESS={resolve,isDeveloper,isManager,isAnalyst,canSeePage,activeAnalyst,INACTIVE}}
 expose();
+
+/* Prévia real da visão gerencial para o Desenvolvedor.
+   Ao clicar em "Visão da gestão", a aplicação passa a renderizar como Gerente,
+   liberando somente as telas que Gerente/Coordenador possuem e ocultando recursos técnicos. */
+function setNavForManagement(on){
+ const pages=['dashboard','apuracoes','carteiras','prazos','historico','equipe'];
+ document.querySelectorAll('.nav button[data-page]').forEach(btn=>{
+   btn.style.display=on ? (pages.includes(btn.dataset.page)?'':'none') : (['dashboard','apuracoes'].includes(btn.dataset.page)?'':'none');
+ });
+}
+function managementPreview(){return window.FC_AUTH?.managementPreview===true}
+function renderManagementPreview(){
+ const on=managementPreview();
+ setNavForManagement(on);
+ const dev=document.getElementById('fc-admin-users-btn');
+ if(dev) dev.style.display=on?'none':'';
+ const title=document.getElementById('topTitle');
+ if(title) title.textContent=on?'Visão geral da gestão':'Visão geral do setor';
+ const btn=document.getElementById('fc-management-preview-btn');
+ if(btn) btn.textContent=on?'Voltar à minha visão':'Visão da gestão';
+}
+function installPreviewGuard(){
+ document.addEventListener('click',function(e){
+   const btn=e.target.closest('#fc-management-preview-btn');
+   if(!btn)return;
+   /* O auth-client possui um onclick próprio que apenas troca o nome do usuário.
+      Interceptamos antes dele e fazemos a troca completa de contexto visual. */
+   e.preventDefault();
+   e.stopImmediatePropagation();
+   const on=!managementPreview();
+   const select=document.getElementById('usuario');
+   if(select){
+     const target=on?'Daniela':(window.FCAuth?.getUser?.()?.nome||'Wemerson');
+     let option=[...select.options].find(o=>o.value===target);
+     if(!option){option=new Option(target,target);select.add(option)}
+     select.value=target;
+   }
+   if(window.FC_AUTH){window.FC_AUTH.managementPreview=on;window.FC_AUTH.user=on?{...(window.FC_AUTH.user||{}),nome:'Daniela',perfil:'Gerente',privilegio:null}:{...(window.FC_AUTH.user||{}),nome:'Wemerson',perfil:'Analista',privilegio:'Desenvolvedor'};}
+   renderManagementPreview();
+   try{if(typeof window.render==='function')window.render()}catch(_){ }
+   try{if(typeof window.go==='function')window.go('dashboard')}catch(_){ }
+   setTimeout(renderManagementPreview,0);
+ },true);
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installPreviewGuard);else installPreviewGuard();
 })();
