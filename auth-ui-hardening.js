@@ -4,6 +4,7 @@
   'use strict';
   let passwordPromptShown = false;
   let goGuardInstalled = false;
+  let identityObserverInstalled = false;
 
   function user() {
     return window.FCAuth?.getUser?.() || window.FC_AUTH?.user || null;
@@ -21,8 +22,46 @@
       .fc-password-card label{display:block;font-size:11px;font-weight:800;margin:12px 0 5px}.fc-password-card input{display:block;width:100%;padding:11px 12px;border:1px solid #d9e1eb;border-radius:9px;font:inherit}
       .fc-password-card button{margin-top:16px;width:100%;border:1px solid #1769e0;background:#1769e0;color:#fff;border-radius:9px;padding:11px 14px;font:inherit;font-weight:800;cursor:pointer}
       .fc-password-error{min-height:18px;color:#b42f2f;font-size:12px;margin-top:8px}
+      .fc-auth-identity-select{display:none !important}
+      .fc-auth-identity-avatar{display:grid !important;cursor:pointer}
     `;
     document.head.appendChild(style);
+  }
+
+  function enforceIdentity() {
+    const current = user();
+    if (!current) return;
+    const name = String(current.nome || current.display_name || current.username || '').trim();
+    if (!name) return;
+    addStyle();
+    const select = document.getElementById('usuario');
+    if (select) {
+      let option = [...select.options].find(o => o.value === name);
+      if (!option) { option = new Option(name, name); select.add(option); }
+      select.value = name;
+      select.disabled = true;
+      select.classList.add('fc-auth-identity-select');
+      select.setAttribute('aria-hidden', 'true');
+    }
+    const avatar = document.getElementById('avatar');
+    if (avatar) {
+      avatar.textContent = name.split(/\s+/).map(x => x[0]).slice(0,2).join('').toUpperCase();
+      avatar.title = 'Sair do sistema';
+      avatar.classList.add('fc-auth-identity-avatar');
+      avatar.onclick = () => {
+        if (confirm('Deseja sair do Fiscal Control?')) window.FCAuth?.logout?.();
+      };
+    }
+    const persona = select?.closest('.persona');
+    if (persona) persona.classList.add('fc-auth-identity-locked');
+    if (!identityObserverInstalled && persona) {
+      identityObserverInstalled = true;
+      const observer = new MutationObserver(() => {
+        const u = user();
+        if (u) enforceIdentity();
+      });
+      observer.observe(persona, { childList:true, subtree:true });
+    }
   }
 
   function ensurePasswordUi() {
@@ -62,6 +101,7 @@
         const current = user();
         if (current) current.mustChangePassword = false;
         root.classList.remove('show');
+        document.body.classList.remove('fc-auth-locked');
       } catch (err) {
         error.textContent = err.message;
       } finally {
@@ -96,6 +136,7 @@
   function sync() {
     installGoGuard();
     enforcePasswordChange();
+    enforceIdentity();
     const current = user();
     if (current && window.FC_ACCESS) {
       window.FC_ACCESS.currentUser = current;
