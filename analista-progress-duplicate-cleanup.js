@@ -129,3 +129,7 @@
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
+
+
+/* APURACOES-FLUXO-V2-FINAL */
+(function(){var s=document.createElement("script");s.src="apuracoes-fluxo-v2.js?v=3";document.body.appendChild(s);})();
