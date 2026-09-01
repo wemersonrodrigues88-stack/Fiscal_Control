@@ -1,7 +1,8 @@
 /* Fiscal Control — matriz de acesso
    Perfil operacional separado do privilégio técnico.
    Wemerson permanece Analista, mas possui privilégio Desenvolvedor.
-   Desenvolvedor também possui acesso à visão gerencial, sem trocar de identidade. */
+   Desenvolvedor também possui acesso à visão gerencial, sem trocar de identidade.
+*/
 (function(){
 'use strict';
 const USERS={
@@ -15,7 +16,7 @@ function auth(){try{return window.FCAuth?.getUser?.()||window.FC_AUTH?.user||nul
 function currentName(){const u=auth();if(u?.nome)return String(u.nome);const el=document.getElementById('usuario');return el?String(el.value||''):''}
 function resolve(){
  const u=auth();
- if(u?.nome){return {nome:u.nome,perfil:u.perfil||'Analista',privilegio:u.privilegio||null,situacao:u.situacao||'Ativo'}}
+ if(u?.nome)return {nome:u.nome,perfil:u.perfil||'Analista',privilegio:u.privilegio||null,situacao:u.situacao||'Ativo'};
  const name=currentName();
  const found=USERS[name];
  if(found)return {...found,nome:name,situacao:'Ativo'};
@@ -33,13 +34,8 @@ function canSeePage(page){
 }
 function expose(){window.FC_ACCESS={resolve,isDeveloper,isManager,isAnalyst,canSeePage,activeAnalyst,INACTIVE}}
 expose();
-
-/* O Desenvolvedor NÃO deve ser convertido em outro usuário para visualizar a gestão.
-   A autorização gerencial é direta pelo privilégio e a identidade permanece Wemerson. */
 function syncManagementAccess(){
- const developer=isDeveloper();
- const manager=isManager();
- const allowed=developer||manager;
+ const allowed=isDeveloper()||isManager();
  document.querySelectorAll('.nav button[data-page]').forEach(btn=>{
    const page=btn.dataset.page;
    btn.style.display=allowed||['dashboard','apuracoes'].includes(page)?'':'none';
