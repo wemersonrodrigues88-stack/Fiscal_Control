@@ -1,1 +1,0 @@
-Deploy trigger — correção estrutural consolidada de autenticação, gestão e sincronização central.

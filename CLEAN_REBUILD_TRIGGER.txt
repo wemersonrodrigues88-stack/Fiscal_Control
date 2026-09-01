@@ -1,1 +1,0 @@
-Clean runtime rebuild requested on 2026-09-01. The workflow replaces index.html with the consolidated clean entrypoint.
