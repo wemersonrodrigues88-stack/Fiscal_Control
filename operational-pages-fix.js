@@ -35,11 +35,38 @@ function renderPrazosFix(){
  table.innerHTML=OPS_UFS.flatMap(uf=>OPS_TAXES.map(ob=>{const p=list.find(x=>x.uf===uf&&x.obrigacao===ob)||{};return `<tr><td>${esc(ob)}</td><td>${uf}</td><td>${esc(p.data||'—')}</td><td>${esc(p.obs||'—')}</td></tr>`})).join('');
  cards.querySelectorAll('[data-op-deadline-uf]').forEach(b=>b.onclick=()=>{if(typeof window.openDeadline==='function')window.openDeadline(b.dataset.opDeadlineUf,b.dataset.opDeadlineOb)});
 }
-function refresh(){setTimeout(()=>{renderApuracoesFix();renderPrazosFix()},0)}
+
+/* Dashboard: "Minhas carteira" pertence à coluna esquerda, abaixo de "Obrigações por estado".
+   Não criar um novo card: mover o card existente, preservando seu conteúdo e ações. */
+function fixMinhasCarteira(){
+ const dash=document.getElementById('page-dashboard');if(!dash)return;
+ const all=[...dash.querySelectorAll('.card')];
+ const carteira=all.find(c=>/minhas\s+(lojas|carteira)/i.test(c.textContent||''));
+ if(!carteira)return;
+ const obrigacoes=all.find(c=>/obriga(ç|c)ões\s+por\s+estado/i.test(c.textContent||''));
+ if(!obrigacoes)return;
+ let left=obrigacoes.parentElement;
+ if(!left||!left.classList.contains('two'))return;
+ /* A estrutura original é: .two = [coluna esquerda, coluna direita].
+    O card de carteira deve ficar na coluna esquerda, logo após Obrigações. */
+ let leftCol=obrigacoes.parentElement;
+ if(leftCol===dash)leftCol=obrigacoes.closest('.two');
+ if(!leftCol)return;
+ const currentParent=carteira.parentElement;
+ const targetCol=leftCol;
+ if(currentParent!==targetCol){
+   const anchor=obrigacoes;
+   targetCol.insertBefore(carteira,anchor.nextSibling);
+ }
+ const title=carteira.querySelector('.cardTitle h3,h3');
+ if(title)title.textContent='Minhas carteira';
+ carteira.dataset.fcCarteiraFixed='1';
+}
+function refresh(){setTimeout(()=>{renderApuracoesFix();renderPrazosFix();fixMinhasCarteira()},0)}
 function init(){
  refresh();
  document.querySelectorAll('.nav button[data-page="apuracoes"],.nav button[data-page="prazos"]').forEach(b=>{if(b.__opsFix)return;b.addEventListener('click',refresh);b.__opsFix=true});
- if(typeof window.render==='function'&&!window.__opsRender){const old=window.render;window.render=function(){const r=old.apply(this,arguments);setTimeout(()=>{renderApuracoesFix();renderPrazosFix()},0);return r};window.__opsRender=true}
+ if(typeof window.render==='function'&&!window.__opsRender){const old=window.render;window.render=function(){const r=old.apply(this,arguments);setTimeout(()=>{renderApuracoesFix();renderPrazosFix();fixMinhasCarteira()},0);return r};window.__opsRender=true}
  ['busca','filtroImposto','filtroUF'].forEach(id=>{const el=document.getElementById(id);if(el&&!el.__opsInput){el.addEventListener('input',renderApuracoesFix);el.addEventListener('change',renderApuracoesFix);el.__opsInput=true}});
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
