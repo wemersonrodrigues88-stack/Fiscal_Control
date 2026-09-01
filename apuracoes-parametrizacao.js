@@ -60,6 +60,26 @@
   };
   window.finalizar=function(lojaId,tax){window.setStatus(lojaId,tax,PARAMETROS.statusFinalizado)};
 
+  // Suspensao: volta imediatamente para Pendente e zera toda a apuracao.
+  window.suspenderApuracao=function(lojaId,tax){
+    const loja=findStore(lojaId);
+    if(!loja||!allowedStore(loja))return notify('Acesso não permitido para esta loja.');
+    const data=execs(),key=executionKey(loja.id,tax),previous=data[key]||{};
+    if(!previous.status||previous.status==='Pendente')return;
+    data[key]={
+      lojaId:loja.id,lojaNumero:loja.numero,lojaNome:loja.nome,
+      analista:loja.analista||'',imposto:tax,status:'Pendente',
+      queryElapsedMs:0,analysisElapsedMs:0,queryStartedAt:null,analysisStartedAt:null,
+      iniciadoEm:null,finalizadoEm:null,tempoTotalMs:0,tempoMs:0,
+      atualizadoEm:new Date().toISOString(),atualizadoPor:currentUser(),
+      suspensaEm:new Date().toISOString(),suspensaPor:currentUser()
+    };
+    saveExecs(data);
+    safeRefresh();
+    notify(loja.nome+' · '+tax+' → Pendente');
+  };
+  /* APURACOES-SUSPENSAO-V1 */
+
   function identifyStore(button){
     const store=button?.closest?.('.store');if(!store)return null;
     const direct=store.querySelector('[data-op-analysis],[data-op-final]');
