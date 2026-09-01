@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const state = { user: null, ready: false };
+  const state = { user: null, ready: false, managementPreview: false };
 
   function el(tag, attrs = {}, children = []) {
     const node = document.createElement(tag);
@@ -77,7 +77,7 @@
     if (!select || !state.user) return false;
     let option = [...select.options].find(o => o.value === state.user.nome);
     if (!option) { option = new Option(state.user.nome, state.user.nome); select.add(option); }
-    select.value = state.user.nome;
+    if (!state.managementPreview) select.value = state.user.nome;
     select.disabled = true;
     const persona = select.closest('.persona');
     if (persona) select.style.display = 'none';
@@ -110,7 +110,7 @@
   async function applyAccess() {
     hideManualUserSelector();
     applyNavAccess();
-    window.FC_AUTH = { user: state.user, allowedPages: allowedPages(), isDeveloper: state.user?.privilegio === 'Desenvolvedor' };
+    window.FC_AUTH = { user: state.user, allowedPages: allowedPages(), isDeveloper: state.user?.privilegio === 'Desenvolvedor', managementPreview: state.managementPreview };
     if (typeof window.render === 'function') { try { window.render(); } catch (_) {} }
     installDeveloperAdmin();
   }
@@ -143,11 +143,34 @@
   }
 
   function installDeveloperAdmin() {
-    if (state.user?.privilegio !== 'Desenvolvedor' || document.getElementById('fc-admin-users-btn')) return;
-    const button = el('button', { id:'fc-admin-users-btn', type:'button', text:'Usuários' });
-    button.style.cssText = 'position:fixed;right:140px;top:16px;z-index:9998;border:1px solid #d8e1ef;background:#fff;border-radius:8px;padding:9px 13px;font-weight:700;cursor:pointer;';
-    button.onclick = openUserAdmin;
-    document.body.appendChild(button);
+    if (state.user?.privilegio !== 'Desenvolvedor') return;
+    if (!document.getElementById('fc-admin-users-btn')) {
+      const button = el('button', { id:'fc-admin-users-btn', type:'button', text:'Usuários' });
+      button.style.cssText = 'position:fixed;right:140px;top:16px;z-index:9998;border:1px solid #d8e1ef;background:#fff;border-radius:8px;padding:9px 13px;font-weight:700;cursor:pointer;';
+      button.onclick = openUserAdmin;
+      document.body.appendChild(button);
+    }
+    if (!document.getElementById('fc-management-preview-btn')) {
+      const button = el('button', { id:'fc-management-preview-btn', type:'button', text:'Visão da gestão' });
+      button.style.cssText = 'position:fixed;right:260px;top:16px;z-index:9998;border:1px solid #d8e1ef;background:#fff;border-radius:8px;padding:9px 13px;font-weight:700;cursor:pointer;';
+      button.title = 'Prévia visual do que Gerente/Coordenador enxergam. Não altera seu perfil nem suas permissões.';
+      button.onclick = toggleManagementPreview;
+      document.body.appendChild(button);
+    }
+  }
+
+  function toggleManagementPreview() {
+    const select = document.getElementById('usuario');
+    if (!select || !state.user) return;
+    state.managementPreview = !state.managementPreview;
+    const target = state.managementPreview ? 'Daniela' : state.user.nome;
+    let option = [...select.options].find(o => o.value === target);
+    if (!option) { option = new Option(target, target); select.add(option); }
+    select.value = target;
+    window.FC_AUTH = { user: state.user, allowedPages: allowedPages(), isDeveloper: true, managementPreview: state.managementPreview };
+    const button = document.getElementById('fc-management-preview-btn');
+    if (button) button.textContent = state.managementPreview ? 'Voltar à minha visão' : 'Visão da gestão';
+    if (typeof window.render === 'function') { try { window.render(); } catch (_) {} }
   }
 
   async function openUserAdmin() {
@@ -156,11 +179,13 @@
     const d = await r.json().catch(()=>({}));
     if (!r.ok) { root.querySelector('.fc-auth-modal-body').textContent = d.error || 'Não foi possível carregar usuários.'; return; }
     const users = d.users || [];
-    root.querySelector('.fc-auth-modal-body').innerHTML = `<p>Altere perfil, situação ou redefina a senha sem mudar o layout principal.</p><div id="fc-users-list"></div><hr><h4>Novo usuário</h4><form id="fc-new-user"><input name="nome" placeholder="Nome" required><input name="username" placeholder="Usuário" required><select name="perfil"><option>Analista</option><option>Coordenador</option><option>Gerente</option></select><select name="situacao"><option>Ativo</option><option>Férias</option><option>Licença médica</option><option>Pediu demissão</option><option>Demissão</option></select><input name="password" type="password" minlength="10" placeholder="Senha inicial" required><button class="fc-auth-submit">Criar usuário</button><div id="fc-users-error" class="fc-auth-error"></div></form>`;
+    root.querySelector('.fc-auth-modal-body').innerHTML = `<p>Altere perfil, situação ou redefina a senha sem mudar o layout principal.</p><div style="display:grid;grid-template-columns:1.4fr .9fr .9fr 1fr .9fr auto;gap:8px;padding:8px 0;font-size:11px;font-weight:800;color:#687589;border-bottom:1px solid #e6ebf2"><span>NOME</span><span>USUÁRIO</span><span>PERFIL</span><span>PRIVILÉGIO</span><span>SITUAÇÃO</span><span>AÇÃO</span></div><div id="fc-users-list"></div><hr><h4>Novo usuário</h4><form id="fc-new-user"><input name="nome" placeholder="Nome" required><input name="username" placeholder="Usuário" required><select name="perfil"><option>Analista</option><option>Coordenador</option><option>Gerente</option></select><select name="situacao"><option>Ativo</option><option>Férias</option><option>Licença médica</option><option>Pediu demissão</option><option>Demissão</option></select><input name="password" type="password" minlength="10" placeholder="Senha inicial" required><button class="fc-auth-submit">Criar usuário</button><div id="fc-users-error" class="fc-auth-error"></div></form>`;
     const list = root.querySelector('#fc-users-list');
     users.forEach(u => {
-      const row = document.createElement('div'); row.style.cssText='display:grid;grid-template-columns:1.4fr .9fr .9fr 1fr auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #e6ebf2;';
-      row.innerHTML = `<strong>${u.display_name}</strong><span>${u.username}</span><span>${u.profile}</span><span>${u.status}</span><button type="button">Redefinir senha</button>`;
+      const row = document.createElement('div');
+      row.style.cssText='display:grid;grid-template-columns:1.4fr .9fr .9fr 1fr .9fr auto;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid #e6ebf2;';
+      const privilege = u.privilege === 'Desenvolvedor' ? '<strong style="color:#1769e0">Desenvolvedor</strong>' : '<span style="color:#687589">—</span>';
+      row.innerHTML = `<strong>${u.display_name}</strong><span>${u.username}</span><span>${u.profile}</span><span>${privilege}</span><span>${u.status}</span><button type="button">Redefinir senha</button>`;
       row.querySelector('button').onclick = async () => { const p = prompt('Nova senha para '+u.display_name+' (mínimo 10 caracteres):'); if (!p) return; if (p.length<10) return alert('A senha deve ter pelo menos 10 caracteres.'); const rr=await fetch('/api/users/'+encodeURIComponent(u.username),{method:'PUT',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({password:p})}); if(!rr.ok){const dd=await rr.json().catch(()=>({}));alert(dd.error||'Erro');} else alert('Senha redefinida.'); };
       list.appendChild(row);
     });
@@ -187,6 +212,7 @@
     await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
     state.user = null;
     const admin = document.getElementById('fc-admin-users-btn'); if(admin) admin.remove();
+    const preview = document.getElementById('fc-management-preview-btn'); if(preview) preview.remove();
     showLogin();
   }
 
@@ -199,4 +225,4 @@
   });
 })();
 
-/* auth-ui activation trigger v3 */
+/* auth-ui activation trigger v4 */
