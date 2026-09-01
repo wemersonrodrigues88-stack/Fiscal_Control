@@ -24,7 +24,7 @@ async function analystView(r,e,u,rows){
   const ids=ownedStoreIds(lojas,u);
   const out=[];
   for(const x of rows){
-    if(x.state_key==='fc_lojas')out.push({...x,state_value:JSON.stringify((Array.isArray(lojas)?lojas:[]).filter(l=>ids.has(String(l.id)))}));
+    if(x.state_key==='fc_lojas')out.push({...x,state_value:JSON.stringify((Array.isArray(lojas)?lojas:[]).filter(l=>ids.has(String(l.id))))});
     else if(x.state_key==='fc_execucoes')out.push({...x,state_value:JSON.stringify(filterExec(parse(x.state_value,{}),ids))});
     else if(x.state_key==='fc_alertas')out.push({...x,state_value:JSON.stringify(filterAlerts(parse(x.state_value,[]),u.display_name))});
     else if(x.state_key==='fc_mensagens_gestao')out.push({...x,state_value:JSON.stringify(filterMessages(parse(x.state_value,[]),u.display_name))});
@@ -66,5 +66,16 @@ async function states(r,e){
   }
   return json({error:'Método não permitido.'},405);
 }
-async function asset(r,e){const x=await authWorker.fetch(r,e);const ct=x.headers.get('content-type')||'';if(!ct.includes('text/html'))return x;let t=await x.text();if(!t.includes('persistencia-central.js'))t=t.replace(/<\/head>/i,'<script src="/persistencia-central.js?v=4" defer></script></head>');if(!t.includes('acompanhamento-gestao-consolidado.js'))t=t.replace(/<\/body>/i,'<script src="/acompanhamento-gestao-consolidado.js?v=3"></script></body>');return new Response(t,{status:x.status,statusText:x.statusText,headers:x.headers})}
+async function asset(r,e){
+  const x=await authWorker.fetch(r,e);
+  const ct=x.headers.get('content-type')||'';
+  if(!ct.includes('text/html'))return x;
+  let t=await x.text();
+  t=t.replace(/<script[^>]+src=["'][^"']*(?:acompanhamento-individual-ativos|gestor-acompanhamento|desenvolvedor-acompanhamento)\.js[^>]*><\/script>/gi,'');
+  if(!t.includes('persistencia-central.js'))t=t.replace(/<\/head>/i,'<script src="/persistencia-central.js?v=5"></script></head>');
+  if(!t.includes('acompanhamento-gestao-consolidado.js'))t=t.replace(/<\/body>/i,'<script src="/acompanhamento-gestao-consolidado.js?v=4"></script></body>');
+  const headers=new Headers(x.headers);
+  headers.set('cache-control','no-store, no-cache, must-revalidate, max-age=0');
+  return new Response(t,{status:x.status,statusText:x.statusText,headers});
+}
 export default {async fetch(r,e){try{const p=new URL(r.url).pathname;if(p==='/api/state'||p.startsWith('/api/state/'))return states(r,e);return asset(r,e)}catch(x){console.error(x);return json({error:'Erro interno do Fiscal Control.'},500)}}};
