@@ -22,26 +22,29 @@ jobs:
           marker_v1 = '<!-- APURACOES-PARAMETRIZACAO-V1 -->'
           marker_v2 = '<!-- APURACOES-FLUXO-V2 -->'
           tag_v1 = '<script src="apuracoes-parametrizacao.js?v=1"></script>' + marker_v1
-          tag_v2 = '<script src="apuracoes-fluxo-v2.js?v=2"></script>' + marker_v2
+          tag_v2 = '<script src="apuracoes-fluxo-v2.js?v=4"></script>' + marker_v2
           if marker_v1 not in s:
               pos = s.rfind('</body>')
               if pos < 0: raise SystemExit('Tag </body> nao encontrada')
               s = s[:pos] + tag_v1 + s[pos:]
-          pattern = r'<script[^>]*src=["\']apuracoes-fluxo-v2\.js\?v=2["\'][^>]*></script>\s*<!-- APURACOES-FLUXO-V2 -->'
+          pattern = r'<script[^>]*src=["\']apuracoes-fluxo-v2\.js\?v=[0-9]+["\'][^>]*></script>\s*<!-- APURACOES-FLUXO-V2 -->'
           s = re.sub(pattern, '', s, count=1)
           pos = s.rfind('</body>')
           if pos < 0: raise SystemExit('Tag </body> nao encontrada')
           s = s[:pos] + tag_v2 + s[pos:]
           p.write_text(s, encoding='utf-8')
 
-          # O ultimo script do HTML pode sobrescrever renderApuracoes/setStatus.
-          # Recarrega a V2 no final dele, sem alterar o layout.
+          # O fluxo V2/V3 precisa permanecer como o ultimo script do HTML.
+          # Scripts antigos que sobrescrevam renderApuracoes nao podem ganhar prioridade.
           q = Path('analista-progress-duplicate-cleanup.js')
           if q.exists():
               qs = q.read_text(encoding='utf-8')
               marker = '/* APURACOES-FLUXO-V2-FINAL */'
               if marker not in qs:
-                  qs += '\n\n'+marker+'\n(function(){var s=document.createElement("script");s.src="apuracoes-fluxo-v2.js?v=3";document.body.appendChild(s);})();\n'
+                  qs += '\n\n'+marker+'\n(function(){var s=document.createElement("script");s.src="apuracoes-fluxo-v2.js?v=4";document.body.appendChild(s);})();\n'
+                  q.write_text(qs, encoding='utf-8')
+              else:
+                  qs = re.sub(r'\.src="apuracoes-fluxo-v2\.js\?v=[0-9]+"', '.src="apuracoes-fluxo-v2.js?v=4"', qs)
                   q.write_text(qs, encoding='utf-8')
       - name: Publicar parametrizacao
         run: |
@@ -49,5 +52,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html analista-progress-duplicate-cleanup.js
           git diff --cached --quiet && exit 0
-          git commit -m "Garante prioridade final do fluxo V2"
+          git commit -m "Atualiza fluxo definitivo e cache bust"
           git push
