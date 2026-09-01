@@ -9,6 +9,7 @@ on:
       - 'auth-client.css'
       - 'auth-config.js'
       - 'auth-ui-hardening.js'
+      - 'gestor-acompanhamento.js'
       - 'index.html'
   workflow_dispatch:
 
@@ -34,6 +35,7 @@ jobs:
               '<script src="auth-config.js?v=2"></script>',
               '<script src="auth-client.js?v=2"></script>',
               '<script src="auth-ui-hardening.js?v=1"></script>',
+              '<script src="gestor-acompanhamento.js?v=1"></script>',
           ]
           for tag in head_tags:
               if tag not in s:
@@ -53,5 +55,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
           git diff --cached --quiet && exit 0
-          git commit -m "Ativa autenticação real no Fiscal Control"
+          git commit -m "Inclui acompanhamento do gestor"
           git push
