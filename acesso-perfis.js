@@ -1,44 +1,33 @@
-/* Fiscal Control — matriz de acesso
-   Perfil operacional separado do privilégio técnico.
-   Wemerson permanece Analista, mas possui privilégio Desenvolvedor.
-   Desenvolvedor também possui acesso à visão gerencial, sem trocar de identidade.
+/* Fiscal Control — autorização centralizada por sessão.
+   A identidade vem exclusivamente do usuário autenticado no backend.
+   NÃO usar nome de usuário como mecanismo de permissão e NÃO trocar a identidade
+   autenticada para simular outro gestor.
 */
 (function(){
 'use strict';
-const USERS={
-  'Wemerson':{perfil:'Analista',privilegio:'Desenvolvedor'},
-  'Daniela':{perfil:'Gerente',privilegio:null},
-  'Leonardo':{perfil:'Coordenador',privilegio:null}
-};
 const INACTIVE=['Férias','Licença médica','Demissão','Pediu demissão'];
-function equipe(){try{const v=JSON.parse(localStorage.getItem('fc_equipe')||'[]');return Array.isArray(v)?v:[]}catch(e){return[]}}
 function auth(){try{return window.FCAuth?.getUser?.()||window.FC_AUTH?.user||null}catch(e){return null}}
-function currentName(){const u=auth();if(u?.nome)return String(u.nome);const el=document.getElementById('usuario');return el?String(el.value||''):''}
 function resolve(){
  const u=auth();
- if(u?.nome)return {nome:u.nome,perfil:u.perfil||'Analista',privilegio:u.privilegio||null,situacao:u.situacao||'Ativo'};
- const name=currentName();
- const found=USERS[name];
- if(found)return {...found,nome:name,situacao:'Ativo'};
- const m=equipe().find(x=>x.nome===name);
- return {nome:name,perfil:m?.funcao||'Analista',privilegio:null,situacao:m?.situacao||'Ativo'};
+ if(!u)return {nome:'',perfil:'',privilegio:null,situacao:''};
+ return {nome:String(u.nome||u.display_name||''),perfil:String(u.perfil||u.profile||'Analista'),privilegio:u.privilegio||u.privilege||null,situacao:String(u.situacao||u.status||'Ativo')};
 }
 function isDeveloper(){return resolve().privilegio==='Desenvolvedor'}
-function isManager(){const p=resolve().perfil;return p==='Gerente'||p==='Coordenador'||p==='Gestão'||isDeveloper()}
-function isAnalyst(){return resolve().perfil==='Analista'}
-function activeAnalyst(m){return m&&String(m.funcao||'').toLowerCase()==='analista'&&String(m.situacao||'Ativo')==='Ativo'}
+function isManager(){const p=resolve().perfil;return isDeveloper()||p==='Gerente'||p==='Coordenador'||p==='Gestão'}
+function isAnalyst(){return resolve().perfil==='Analista'&&!isManager()}
+function activeAnalyst(m){return m&&String(m.funcao||'').trim().toLowerCase()==='analista'&&String(m.situacao||'Ativo').trim()==='Ativo'}
 function canSeePage(page){
- if(isDeveloper()||isManager())return true;
+ if(isManager())return ['dashboard','apuracoes','carteiras','prazos','historico','equipe'].includes(page);
  if(isAnalyst())return ['dashboard','apuracoes'].includes(page);
  return false;
 }
 function expose(){window.FC_ACCESS={resolve,isDeveloper,isManager,isAnalyst,canSeePage,activeAnalyst,INACTIVE}}
 expose();
 function syncManagementAccess(){
- const allowed=isDeveloper()||isManager();
+ const allowed=isManager();
  document.querySelectorAll('.nav button[data-page]').forEach(btn=>{
    const page=btn.dataset.page;
-   btn.style.display=allowed||['dashboard','apuracoes'].includes(page)?'':'none';
+   btn.style.display=canSeePage(page)?'':'none';
  });
  const actions=document.getElementById('fcg-actions');
  if(actions)actions.style.display=allowed?'flex':'none';
