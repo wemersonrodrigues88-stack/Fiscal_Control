@@ -4,6 +4,10 @@ CREATE TABLE IF NOT EXISTS stores (id TEXT PRIMARY KEY, number TEXT UNIQUE NOT N
 CREATE TABLE IF NOT EXISTS executions (id TEXT PRIMARY KEY, store_id TEXT NOT NULL, obligation TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'Pendente', updated_at TEXT NOT NULL, updated_by TEXT, UNIQUE(store_id, obligation), FOREIGN KEY(store_id) REFERENCES stores(id));
 CREATE TABLE IF NOT EXISTS deadlines (id TEXT PRIMARY KEY, obligation TEXT NOT NULL, uf TEXT NOT NULL, due_date TEXT, note TEXT);
 CREATE TABLE IF NOT EXISTS audit_log (id TEXT PRIMARY KEY, user_id TEXT, action TEXT NOT NULL, entity TEXT, entity_id TEXT, details TEXT, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS icms_imports (id TEXT PRIMARY KEY, competence TEXT NOT NULL, kind TEXT NOT NULL, filename TEXT NOT NULL, sha256 TEXT NOT NULL, rows_count INTEGER NOT NULL DEFAULT 0, credit_base REAL NOT NULL DEFAULT 0, debit_base REAL NOT NULL DEFAULT 0, credit REAL NOT NULL DEFAULT 0, debit REAL NOT NULL DEFAULT 0, st REAL NOT NULL DEFAULT 0, ignored INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, created_by TEXT);
+CREATE TABLE IF NOT EXISTS icms_groups (id TEXT PRIMARY KEY, import_id TEXT NOT NULL, kind TEXT NOT NULL, cfop TEXT NOT NULL, cst TEXT, aliquota TEXT, operation_value REAL NOT NULL DEFAULT 0, base_icms REAL NOT NULL DEFAULT 0, icms REAL NOT NULL DEFAULT 0, st_base REAL NOT NULL DEFAULT 0, icms_st REAL NOT NULL DEFAULT 0, rows_count INTEGER NOT NULL DEFAULT 0);
 CREATE INDEX IF NOT EXISTS idx_stores_analyst ON stores(analyst_id);
 CREATE INDEX IF NOT EXISTS idx_exec_store ON executions(store_id);
 CREATE INDEX IF NOT EXISTS idx_exec_status ON executions(status);
+CREATE INDEX IF NOT EXISTS idx_icms_competence ON icms_imports(competence);
+CREATE INDEX IF NOT EXISTS idx_icms_import_hash ON icms_imports(sha256);
